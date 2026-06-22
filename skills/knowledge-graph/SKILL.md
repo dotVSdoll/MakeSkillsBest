@@ -154,6 +154,50 @@ triggers:
 **入口点识别：** 被调用次数 = 0 且 exported = true → 候选入口点。
 **死代码识别：** 被调用次数 = 0 且 exported = false → 候选死代码。
 
+### L2.5: 声明型注册表 vs 真实调用链（handler 追踪规则）
+
+**工具注册表 / 路由表 / 命令表只能证明"有哪些工具"，不能证明"工具的实现质量"。** 发现以下模式后，必须继续追踪 handler 函数，否则调用链是不完整的：
+
+```
+触发模式:
+  - tool_table[] / tool_registry[] / route_table[] / command_table[]
+  - register_tool() / add_command() / app.get() / router.post()
+  - 任何数组-of-structs 且 struct 含函数指针或 handler 字段
+
+发现后必须执行:
+  1. 提取表中每个 handler 的函数名
+  2. 对每个 handler → find_in_code 找到定义位置
+  3. 从 handler 继续追踪调用链（handler 内部调了什么）
+  4. 在 callGraph 中明确标注: callee 来源 = "tool_table[3]" 或 "route /api/users"
+```
+
+**示例：**
+
+```
+mcp.c 中发现:
+  tool_table[] = {
+    { "index_repository",  tool_index_repository  },
+    { "search_graph",      tool_search_graph      },
+    { "get_symbol",        tool_get_symbol        },
+    ...
+  }
+
+错误做法（声明型，不可接受）:
+  "该项目有 14 个 MCP 工具" ← 只看了表，没追 handler
+
+正确做法（追踪型）:
+  tool_table[0] → tool_index_repository() @ mcp.c:300
+    → pipeline_run() @ pipeline.c:89
+    → extract_symbols() @ extraction.c:12
+    → tree_sitter_parse() @ ts_runtime.c:45
+  tool_table[1] → tool_search_graph() @ mcp.c:420
+    → store_query() @ store.c:150
+    → sqlite3_exec() @ store.c:155
+  ...
+```
+
+**自检：** 如果 `callGraph` 中存在来源为 `tool_table` 或 `route_table` 的边，其 callee 必须有至少 1 条向下的调用边（handler → 实现）。handler 没有向下边 → 说明追踪不完整，继续深挖。
+
 **自检：**
 - `entryPoints` 至少有一个（否则项目没有入口）
 - `callGraph` 中的 caller 全部在 L1 符号表中

@@ -129,30 +129,33 @@ dependencies:
 
 ### Step 3: 设定最小边界条件
 
-核心路径已标出。现在设定**硬边界**——超过即停止：
+核心路径已标出。现在设定**硬边界**——超过即停止。
+
+**边界不是拍脑袋的数字。** 根据 `semantic-rag` 识别的项目类型，按以下分层标准设定：
 
 ```
-硬边界清单:
-□ 文件数上限:    核心路径 🔴 数量 × 1.5 (向下取整), 最少 1 个文件
-□ 代码行数上限:  核心路径 🔴 数量 × 50 行, 最多 200 行
-□ 外部依赖上限:  0 (除非核心动作本质依赖外部服务, 如 LLM API)
-□ 步骤数上限:    核心路径 🔴 数量 (每个 🔴 一个实现步骤)
+项目类型检测（来自 semantic-rag 项目身份卡）:
+
+┌────────────────────┬──────────┬──────────┬──────────┬──────────────────────────┐
+│ 项目类型            │ 代码上限  │ 文件上限  │ 依赖上限  │ 典型项目                  │
+├────────────────────┼──────────┼──────────┼──────────┼──────────────────────────┤
+│ 脚本/工具           │ ≤200 行  │ ≤3 文件  │ 0        │ 单文件 CLI、Shell 工具    │
+│ Web API/服务        │ ≤500 行  │ ≤5 文件  │ ≤2       │ Express/FastAPI 端点      │
+│ CLI/MCP 工具        │ ≤800 行  │ ≤8 文件  │ ≤3       │ MCP server、dev 工具链    │
+│ 系统软件/DB/编译器   │ 1000-1500│ ≤12 文件 │ ≤5       │ SQLite store、LSP、编译器  │
+│                    │ (骨架版) │          │          │                          │
+└────────────────────┴──────────┴──────────┴──────────┴──────────────────────────┘
+
+共同硬边界:
 □ 配置项上限:    0 (全部硬编码)
-□ 抽象层上限:    0 (无 interface, 无 abstract class, 无工厂)
+□ 抽象层上限:    0 (无 interface / abstract class / factory)
+□ 步骤数上限:    核心路径 🔴 数量 (每个 🔴 → 一个实现步骤)
 ```
 
-**为什么边界要预先设定？**
-这不是拍脑袋的数字——是从前置 skill 已经跑通的全项目理解中推导出来的。agent 知道整个项目的全貌，正因如此，它才能精确地画出"最小"的边界。
+**为什么不能一刀切 200 行：** 对 Web demo 或小脚本，200 行是合理的。但对 MCP server、SQLite store、LSP 这类系统软件，200 行很可能连骨架都搭不起来——agent 会为了满足边界而产出假的 MVP（跳过必要的初始化/错误处理/资源释放）。分层之后，每个类型有自己合理的"最小"定义。
 
-```
-边界推导:
-
-输入: repo-decompose 需求树 (全部) + knowledge-graph 依赖图 (全部)
-过程: 只保留 🔴 核心路径上的节点
-输出: 边界条件（文件数、行数、依赖数、步骤数）
-
-不是"猜一个最小值"——是"已知全部，剪掉非核心后剩下的就是最小"。
-```
+**为什么边界要按项目类型分层：**
+Agent 知道整个项目的全貌（来自前置 skill），也知道了项目类型（来自 semantic-rag 身份卡）。同样的"核心路径"在不同类型的项目里，实现代价完全不同——一个编译器的"核心路径"天然比一个脚本大 5-10 倍。分层边界确保 Agent 不会为了凑数字而省略骨架代码。
 
 ### Step 4: 生成最小实现路径（倒推）
 
@@ -203,6 +206,74 @@ Step 1: [用户触发/输入]
   需求树: repo-decompose
   符号关系: knowledge-graph
   语义方向: semantic-rag
+```
+
+---
+
+### Step 6: 运行验证层（Execution-Proof）
+
+**方案写完了不等于能跑。** 必须从构建文件中提取验证命令，并逐条执行：
+
+```
+验证层级（从弱到强）:
+
+Level 1 — 能否 build?
+  → 从构建文件自动提取编译命令:
+    Makefile → make / make -f Makefile.cbm
+    CMakeLists.txt → cmake --build build/
+    package.json → npm run build / yarn build
+    go.mod → go build ./...
+  → 执行编译 → 必须 PASS
+
+Level 2 — 能否 run --help?
+  → 执行 ./binary --help 或 npm start --help
+  → 必须输出非空帮助文本
+
+Level 3 — 能否跑一个最小 CLI command?
+  → 核心动作的最简形式
+  → 示例: ./graph --query "main"
+  → 必须返回 exit code 0 + 非空输出
+
+Level 4 — 能否产生一个最小产物?
+  → 如果项目产生文件输出 (graph.db, report.json, build/...)
+  → 验证产物存在 + 文件大小 > 0
+
+Level 5 — 能否验证产物内容?
+  → 示例: sqlite3 graph.db "SELECT * FROM symbols LIMIT 1" → 返回一行
+  → 示例: cat report.json | jq '.modules[0]' → 非 null
+```
+
+**提取验证命令的方法：**
+
+```
+1. 扫描构建文件:
+   Makefile → 提取 test / test-*/ check / cbm 等 target
+   package.json → 提取 scripts.test / scripts.verify
+   CMakeLists.txt → 提取 add_test() 或 CTest 配置
+
+2. 识别最小验证路径:
+   取第一个不需要外部服务的 target
+   示例: make test-foundation ✅  vs make test-integration (需要 Docker) ❌
+
+3. 在最终方案中追加验证清单:
+   ✅ L1 build: make -f Makefile.cbm → PASS
+   ✅ L2 help: ./cbm --help → "Codebase Mapper v0.1"
+   ✅ L3 command: ./cbm index ./src → "Indexed 142 symbols"
+   ✅ L4 artifact: ls graph.db → 20480 bytes
+   ✅ L5 verify: ./cbm search "main" → "src/main.c:15"
+```
+
+**如果验证失败：** 不降级交付。回到 Step 4，重新评估最小路径是否真的最小。
+
+**最终方案中追加：**
+
+```
+🔬 运行验证:
+  L1 build: [命令] → [结果]
+  L2 help:  [命令] → [结果]
+  L3 run:   [命令] → [结果]
+  L4 artifact: [文件] → [大小]
+  L5 verify: [命令] → [结果]
 ```
 
 ---

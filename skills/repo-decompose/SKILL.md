@@ -176,6 +176,48 @@ Step 0.6: 写入共享上下文 meta 区块
 
 ---
 
+### Phase 1.5: 证据矩阵生成（主 Agent — Phase 1 完成后立即执行）
+
+**架构层分析只说了"有什么模块"。证据矩阵回答"你怎么知道"。** 在子 agent 进入数据层和逻辑层分析之前，主 agent 必须先为每个模块绑定具体证据：
+
+```
+证据矩阵格式:
+| 模块 | 证据文件 | 入口函数 | 依赖方向 | 是否核心路径 |
+```
+
+| 字段 | 含义 | 提取方法 |
+|---|---|---|
+| 模块 | 架构层识别的模块名 | `architecture.modules[]` |
+| 证据文件 | 该模块存在的最强证据 | 构建文件中的编译目标 / 源码中的导出点 |
+| 入口函数 | 该模块的入口（CLI command / API handler / main） | `search_content` 搜 `main(` / `register_tool(` / `route(` |
+| 依赖方向 | 它依赖谁 → 被谁依赖 | `architecture.depGraph` 对应行 |
+| 是否核心路径 | 删掉它，核心动作还能演示吗？ | 主 agent 判定 |
+
+**证据优先级（同 semantic-rag 的 README 降权规则）：**
+1. **构建文件** — 被编译/链接 = 最高置信度
+2. **源码入口函数** — 有明确的 `main`/`handler`/`command` 定义
+3. **注释/文档** — 最低置信度，仅作辅助
+
+**示例（基于 C 项目的 MCP server）：**
+
+```
+| 模块 | 证据文件 | 入口函数 | 依赖方向 | 核心路径 |
+|------|---------|---------|---------|---------|
+| mcp | mcp.c:142 tool_table[] | mcp_register_tools() | dep→pipeline, store | ✅ 是 |
+| pipeline | pipeline.c:89 pass注释 | pipeline_run() | dep→extraction, LSP | ✅ 是 |
+| store | store.c:33 sqlite3_open | store_init() | dep→none | ✅ 是 |
+| extraction | extraction.c:12 extract_symbols() | extract_from_buffer() | dep→tree-sitter | 🟡 支撑 |
+| LSP | lsp.c:200 lsp_initialize() | lsp_start_server() | dep→tree-sitter | 🟡 支撑 |
+| watcher | watcher.c:55 inotify_init | watcher_start() | dep→store | ✂️ 可砍 |
+| UI | ui.c:80 ncurse_init() | ui_render() | dep→pipeline | ✂️ 可砍 |
+```
+
+**出口标准：** 每个架构层模块都有一行证据矩阵，且"证据文件"字段指向具体的 `文件:行号`。
+
+**为什么必须在 Phase 2 之前做：** 数据层和逻辑层子 agent 启动时需要知道"哪些模块的入口函数值得深挖"。没有证据矩阵，子 agent 会平均用力——把 watcher 和 mcp 分析得一样深。有了证据矩阵，"核心路径"标记直接告诉子 agent 优先追踪哪些入口的调用链。
+
+---
+
 ### Phase 2: 数据层 + 逻辑层并行分析
 
 ```
