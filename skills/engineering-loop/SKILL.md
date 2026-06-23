@@ -111,19 +111,51 @@ decision 合法值: "continue" | "stop" | "rollback" | "replan"
   6. 写入 meta.currentPhase = "observe"
 ```
 
-**repoType 判定规则：**
+**repoType 判定规则（主导类型 + 次级能力）：**
+
+**不再使用线性 if-else 链。** 改为加权判定——README 和 metadata 的权重最高，辅助脚本（如 project.scripts）只作为次级能力。
 
 ```
-检测依据                              → repoType
-─────────────────────────────────────────────────────
-存在 SKILL.md + skills/ 目录结构       → skill-repo
-存在 packages/ + pnpm-workspace 等     → monorepo
-存在 pyproject.toml [project.scripts]  → cli (有 CLI 入口)
-存在 go.mod + cmd/ 目录                → cli
-存在 main.go / main.rs 但无 CLI 入口    → app
-存在 package.json "main"/"module" 等   → library
-以上都不匹配                           → library (默认)
+Step 1: 收集证据
+  - README 标题/第一段 → 项目自称什么 (framework/library/tool/skill/...)
+  - package.json "keywords" / pyproject classifiers → 元数据分类
+  - 依赖列表 → library 依赖 (starlette/pydantic → framework) vs CLI 依赖 (click/commander → cli)
+  - 目录结构 → packages/ → monorepo; skills/ → skill-repo
+  - 发布入口 → "main"/"module"/exports 字段 → library; "bin" 字段 → cli
+
+Step 2: 判定主导类型（按信号强度排序）
+  信号强度 1 (最高): README 自述
+    "web framework" → framework
+    "TypeScript SDK" → sdk
+    "skill for Claude" → skill-repo
+    "command line tool" → cli
+
+  信号强度 2: 依赖特征
+    依赖 starlette + pydantic → framework（即使有 CLI 脚本）
+    依赖 react + next → frontend-framework
+    依赖 @modelcontextprotocol/sdk → sdk
+
+  信号强度 3: 目录结构
+    skills/ + SKILL.md → skill-repo
+    packages/ + workspace → monorepo
+
+  信号强度 4 (最低): 辅助入口
+    project.scripts / bin → secondary capability (cli)，不单独作为主导类型
+
+Step 3: 输出
+  {
+    "repoType": "framework",           // 主导类型
+    "secondaryCapabilities": ["cli"],   // 次级能力
+    "confidence": 0.86,
+    "evidence": [
+      "README: 'FastAPI is a modern web framework'",
+      "deps: starlette, pydantic (framework signature)",
+      "project.scripts: fastapi CLI exists but is auxiliary"
+    ]
+  }
 ```
+
+**repoType 合法值：** `skill-repo` | `monorepo` | `cli` | `app` | `library` | `framework` | `sdk` | `frontend-framework`
 
 **deliveryMode 判定规则：**
 
@@ -148,7 +180,61 @@ goal.type == "feature"|"fix"|"refactor"→ delivery
 }
 ```
 
-**verificationMode 推导：** `cli` (repoType=cli/app) | `library` (repoType=library/monorepo) | `skill-eval` (repoType=skill-repo, 下一轮实现)
+**verificationMode 推导：**
+
+```
+repoType                  → verificationMode
+─────────────────────────────────────────────
+cli / app                 → cli
+library                   → library
+framework / sdk           → framework
+frontend-framework        → frontend-monorepo
+monorepo (含 packages/*)  → 按子包主导类型推导
+skill-repo                 → skill-eval
+```
+
+**releaseChannel 检测（Observe 阶段同时完成）：**
+
+从 README、git branch、package.json version 中提取分支/发布策略：
+
+```
+检测来源:
+  README 中 "main is v2 pre-alpha" / "production: v1.x"
+  git branch -a → 是否存在 v1.x / v2 / stable / next
+  package.json version → "2.0.0-alpha" / "1.5.0"
+
+写入状态文件:
+{
+  "releasePolicy": {
+    "currentBranch": "main",
+    "stability": "pre-alpha",
+    "productionBranch": "v1.x",
+    "requiresUserConfirmationForProductionFix": true
+  }
+}
+```
+
+**testProfile 抽取（Observe 阶段同时扫描）：**
+
+从构建脚本中提取不同测试 profile：
+
+```
+扫描来源:
+  package.json scripts: test / test:unit / test:e2e / test-dev / test-start
+  Makefile targets: test / test-foundation / test-integration / test-tsan
+  CI config: .github/workflows/test.yml → job name → test suite
+
+写入状态文件:
+{
+  "testProfiles": [
+    { "name": "unit", "command": "pnpm test-unit", "cost": "low", "scope": "utility" },
+    { "name": "e2e", "command": "pnpm test-dev <path>", "cost": "medium", "scope": "runtime" },
+    { "name": "production-e2e", "command": "pnpm test-start <path>", "cost": "high", "scope": "production" }
+  ]
+}
+```
+
+verification-loop 在 L5 targeted-tests 时根据修改文件选择最低成本且相关的 profile。
 
 **read-only 模式行为：** 只执行 Observe → Understand → Plan → Bound（生成项目地图和修改边界，不进入 Act/Verify）。出口：输出项目地图 + 证据矩阵 + 红区分析。
 

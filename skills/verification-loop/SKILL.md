@@ -35,9 +35,12 @@ dependencies:
 ### 模板选择
 
 ```
-meta.verificationMode == "cli"     → Template A: CLI 工具验证链
-meta.verificationMode == "library" → Template B: Library/Framework 验证链
-meta.verificationMode == "skill-eval" → 下一轮实现
+meta.verificationMode == "cli"               → Template A: CLI 工具验证链
+meta.verificationMode == "library"           → Template B: Library 验证链
+meta.verificationMode == "framework"         → Template B: Library 验证链 (framework 是 library 的超集)
+meta.verificationMode == "sdk"               → Template B: Library 验证链 + 额外 L3.5 protocol example
+meta.verificationMode == "frontend-monorepo" → Template B + testProfile 选择
+meta.verificationMode == "skill-eval"        → Template C: Skill Eval 验证链
 ```
 
 ---
