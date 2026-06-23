@@ -88,6 +88,49 @@ dependencies:
   5. 测试基础设施 (jest.config/vitest.config) → 红区（除非本轮目标就是改测试配置）
 ```
 
+### Step 4.5: 抽取架构契约（Architecture Contracts）
+
+**不是所有红区都能从 fanIn/fanOut 推出来。** 很多项目的核心约束写在文档里——README、CONTRIBUTING、docs 中的"你不能在这里加逻辑""这个模块只做 thin adapter""公共 API 不可破坏"。这些是**架构契约**。
+
+**抽取方法：**
+
+```
+1. 扫描以下文件:
+   README.md / README.rst → 搜索 "must" / "should not" / "不可" / "禁止" / "only"
+   CONTRIBUTING.md → 搜索 "never" / "do not" / "convention"
+   docs/*.md → 搜索 "contract" / "boundary" / "public API"
+
+2. 提取以下模式:
+   "[模块] 只能做 X，不能做 Y"        → architectureContract
+   "[路径] 不能新增 Z"                → architectureContract
+   "public API [函数/类] 不可破坏"    → architectureContract
+   "middleware is thin adapter only"  → architectureContract
+
+3. 每个契约转为红区规则:
+   {
+     "source": "README.md:45",
+     "rule": "middleware packages must remain thin adapters",
+     "paths": ["packages/middleware/*"],
+     "enforcement": "forbidden unless goal explicitly targets middleware contract"
+   }
+```
+
+**示例（来自 mcp-sdk）：**
+```json
+{
+  "architectureContracts": [
+    {
+      "source": "packages/middleware/README.md:3",
+      "rule": "thin integration layer only — no MCP business logic",
+      "paths": ["packages/middleware/*"],
+      "enforcement": "forbidden unless goal explicitly targets middleware"
+    }
+  ]
+}
+```
+
+**合并到红区：** 架构契约路径自动合并到 `forbiddenZones`。
+
 ### Step 5: 输出实现映射
 
 写入 `.repo-loop-state.json` → `bound.implementationMap`：

@@ -59,15 +59,40 @@ dependencies:
 ## PRECONDITIONS — 硬门控（第一个不满足即 STOP）
 
 ```
-[1] 用户提供了目标 (goal.statement 非空)？
-    NO → STOP. 输出: "❌ 请先告诉我你想在这个仓库里做什么。示例：为项目添加 JWT 登录功能"
-
-[2] 仓库路径可访问？
+[1] 仓库路径可访问？
     NO → STOP. 输出: "❌ 找不到仓库。请提供 GitHub URL 或本地路径"
+
+[2] 用户意图已表达？
+    delivery-loop 模式: 需要 goal.statement 非空 (如 "添加 JWT 登录")
+    read-only 模式:    goal.statement 可为 "理解此仓库"（默认）
+    NO → STOP. 输出: "❌ 请告诉我你想做什么。示例：'理解这个项目' / '添加登录功能'"
 
 [3] .repo-loop-state.json 不存在 OR 存在且格式有效？
     不存在 → 初始化空状态文件，从 Observe 阶段开始
-    存在但格式无效 → STOP. 输出: "❌ 状态文件损坏，请删除 .repo-loop-state.json 后重新开始"
+    存在 → 跑 schema 校验（Phase 切换前必执行）
+    校验失败 → STOP. 输出: "❌ 状态文件字段缺失/类型错误: [具体字段]"
+```
+
+### 状态文件 Schema 校验（每次 Phase 切换前执行）
+
+engineering-loop 在任何 Phase 切换读取 `.repo-loop-state.json` 后，必须先校验以下字段存在性和类型：
+
+```
+必检字段:
+  meta:              { repo, language, scale, loopCount } — 全部 string/number
+  goal:              { statement, type, stopCondition }   — 全部 string
+  observe:           { status }                           — enum string
+  plan:              { status }                           — enum string
+  bound:             { status }                           — enum string
+  act:               { status, completedTasks[], modifiedFiles[] } — array
+  verify:            { status, results[], consecutiveFailures } — number
+  learn:             { status, roundSummary }              — string
+  decide:            { decision, reason }                  — string
+
+status 合法值: "pending" | "running" | "done" | "failed" | "blocked"
+decision 合法值: "continue" | "stop" | "rollback" | "replan"
+
+校验失败 → 拒绝进入下一 Phase，输出具体失败字段和期望类型。
 ```
 
 ## 八阶段工作流
@@ -80,13 +105,56 @@ dependencies:
 动作:
   1. 初始化状态文件 meta 区块
   2. 检测仓库语言/框架/规模
-  3. 记录 goal.statement, goal.constraints
-  4. 写入 meta.currentPhase = "observe"
-
-出口: meta 区块完整 → 自动进入 Understand
+  3. 判定 repoType（决定下游 skill 行为）
+  4. 判定 deliveryMode（决定 loop 是否进入 Act）
+  5. 记录 goal.statement, goal.constraints
+  6. 写入 meta.currentPhase = "observe"
 ```
 
-**不调用子 skill。** Observe 只是元信息收集。
+**repoType 判定规则：**
+
+```
+检测依据                              → repoType
+─────────────────────────────────────────────────────
+存在 SKILL.md + skills/ 目录结构       → skill-repo
+存在 packages/ + pnpm-workspace 等     → monorepo
+存在 pyproject.toml [project.scripts]  → cli (有 CLI 入口)
+存在 go.mod + cmd/ 目录                → cli
+存在 main.go / main.rs 但无 CLI 入口    → app
+存在 package.json "main"/"module" 等   → library
+以上都不匹配                           → library (默认)
+```
+
+**deliveryMode 判定规则：**
+
+```
+检测依据                              → deliveryMode
+─────────────────────────────────────────────────────
+goal.type == "understand"              → read-only
+goal.statement 含 "理解"/"读懂"/"分析"   → read-only
+goal.type == "feature"|"fix"|"refactor"→ delivery
+用户调用: /read-loop                    → read-only
+用户调用: /loop                         → delivery (默认)
+```
+
+**写入状态文件：**
+```json
+{
+  "meta": {
+    "repoType": "monorepo",
+    "deliveryMode": "read-only",
+    "verificationMode": "cli"
+  }
+}
+```
+
+**verificationMode 推导：** `cli` (repoType=cli/app) | `library` (repoType=library/monorepo) | `skill-eval` (repoType=skill-repo, 下一轮实现)
+
+**read-only 模式行为：** 只执行 Observe → Understand → Plan → Bound（生成项目地图和修改边界，不进入 Act/Verify）。出口：输出项目地图 + 证据矩阵 + 红区分析。
+
+**delivery 模式行为：** 完整 8 阶段循环。
+
+**出口：** meta 区块完整 + repoType/deliveryMode 已判定 → 自动进入 Understand
 
 ### Phase 2: Understand — 深度理解
 
@@ -137,7 +205,11 @@ dependencies:
 **触发：** `bound.status == "done"` → `meta.currentPhase = "act"`
 
 ```
-动作:
+read-only 模式检查:
+  meta.deliveryMode == "read-only" → 跳过 Act/Verify，直接进入 Learn
+  输出: "📖 Read-only 模式 — 不执行代码变更。项目地图和红区分析已完成。"
+
+delivery 模式继续:
   1. 从 plan.taskGraph.batches[0] 取下一个任务批次
   2. 对每批中的任务，逐个执行:
      a. 确认当前任务涉及的文件都在 implementation-map 白名单中
@@ -189,6 +261,10 @@ dependencies:
 
 ```
 判定逻辑（按优先级）:
+
+[停止条件 0] meta.deliveryMode == "read-only" AND bound.status == "done"？
+  → decision = "stop", reason = "read-only 模式完成 — 项目地图 + 证据矩阵 + 红区分析已生成"
+  → 不进入 Act/Verify。输出项目地图、证据矩阵、红区报告。
 
 [停止条件 1] act.completedTasks 包含 plan.taskGraph 中所有节点？
   → decision = "stop", reason = "所有任务已完成"

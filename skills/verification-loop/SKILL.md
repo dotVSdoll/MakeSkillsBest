@@ -1,6 +1,6 @@
 ---
 name: verification-loop
-description: "五级验证链 — build → --help → minimal command → artifact → content check。自动从构建文件提取验证命令，每级通过才进下一级。产出写入状态文件。"
+description: "分模板验证 — CLI 项目 (build→help→command→artifact→content) / Library 项目 (install→import→usage→behavior→tests)。自动按 repoType 选模板，产物写入状态文件。"
 argument-hint: "verify | run verification | check the build | prove it works"
 dependencies:
   upstream:
@@ -28,36 +28,69 @@ dependencies:
     NO → STOP. "❌ 需要先运行 implementation-map"
 ```
 
-## 五级验证链
+## 验证模板
+
+**不再使用统一的 CLI 五级链。** 根据 `meta.verificationMode` 选择验证模板。
+
+### 模板选择
 
 ```
-L1: Build      → L2: Help      → L3: Command   → L4: Artifact  → L5: Content
-   编译通过        能输出帮助      能跑最小命令      产物文件存在     产物内容正确
-   ↓ FAIL         ↓ FAIL          ↓ FAIL          ↓ FAIL          ↓ FAIL
-   停止，修复      停止，修复       停止，修复       停止，修复       停止，修复
+meta.verificationMode == "cli"     → Template A: CLI 工具验证链
+meta.verificationMode == "library" → Template B: Library/Framework 验证链
+meta.verificationMode == "skill-eval" → 下一轮实现
 ```
 
-**规则：任何一级 FAIL → 停止验证链。不跳过、不降级。**
+---
+
+### Template A: CLI 工具验证链
+
+**适用：** cli / app 类型项目（有 `--help`、可执行入口、产出文件）
+
+| 级别 | 验证内容 | 命令提取方式 |
+|---|---|---|
+| L1-build | 编译通过 | Makefile → `make` / npm → `npm run build` / go → `go build` |
+| L2-help | 能输出帮助 | `./binary --help` 或 `npm start -- --help` |
+| L3-command | 能跑最小命令 | `./binary [核心动作的最简参数]` → exit 0 + 有输出 |
+| L4-artifact | 产物存在 | `ls binary` 或 `ls dist/` → 文件存在 + size > 0 |
+| L5-content | 产物内容正确 | `./binary verify` 或 `./binary search "main"` → 预期输出 |
+
+**提取规则：** 选最少外部依赖的命令。Makefile 中优先 `test-foundation` 而非 `test-integration`（不需要 Docker）。
+
+---
+
+### Template B: Library/Framework 验证链
+
+**适用：** library / monorepo 类型项目（无 CLI 入口，核心产物是 importable module）
+
+| 级别 | 验证内容 | 命令提取方式 |
+|---|---|---|
+| L1-install | 可安装 | `pip install -e .` / `npm install` / `go install` / `cargo build` |
+| L2-import | 可导入 | `python -c "import pkg"` / `node -e "require('pkg')"` / 检查类型 |
+| L3-minimal-usage | 最小 API 可用 | `python -c "from pkg import App; App().run()"` → exit 0 |
+| L4-behavior | 行为断言 | 最小 API 调用 → 输出/返回值符合预期 |
+| L5-targeted-tests | 针对性测试 | `pytest tests/test_auth.py` / `npm test -- --testPathPattern=auth` |
+
+**提取规则：**
+- L3: 从 README 的 "Quick Start" 或 "Usage" 示例中提取最简代码片段
+- L5: 只跑与修改文件相关的测试，不全量——从 `task-graph` 的 `modifiedFiles` 反向查找对应测试文件
+
+**框架项目特殊情况：**
+- FastAPI 类 → L3: `from fastapi import FastAPI; app = FastAPI(); app.get("/")(lambda: "ok")` → TestClient 请求
+- React 组件库 → L3: `import { Button } from "ui"; render(<Button/>)` → 无 crash
+
+---
+
+### 选择规则（两种模板通用）
+
+1. 优先不需要外部服务的命令
+2. 项目没有对应能力的级别 → 跳过，标注 `N/A`
+3. L5 始终跑 targeted tests，不全量——大仓库全量测试不现实
 
 ## 工作流
 
-### Step 1: 自动提取验证命令
+### Step 1: 按模板提取验证命令
 
-从构建文件中提取可用的验证命令，按语言/构建系统分类：
-
-| 构建系统 | 检测文件 | L1 build | L2 help | L3 command | L4 artifact | L5 content |
-|---|---|---|---|---|---|---|
-| Make | Makefile | `make` or `make -f Makefile.cbm` | `./binary --help` | `./binary [最小参数]` | `ls binary` | `./binary verify` |
-| CMake | CMakeLists.txt | `cmake --build build/` | 同上 | 同上 | 同上 | `ctest` |
-| npm | package.json | `npm run build` | `npm start -- --help` | `npm start -- [最小参数]` | `ls dist/` | `npm test` |
-| Go | go.mod | `go build ./...` | `./binary --help` | `./binary [最小参数]` | `ls binary` | `go test ./...` |
-| Python | pyproject.toml | `pip install -e .` | `python -m pkg --help` | `python -m pkg [最小参数]` | `python -c "import pkg"` | `pytest` |
-
-**选择规则：**
-1. 优先选需要最少外部依赖的命令
-2. 如果 makefile 中有 `test-foundation` 和 `test-integration`，选 `test-foundation`（不需要 Docker/DB）
-3. 如果项目没有 --help → L2 跳过，标注 `N/A`
-4. 如果项目没有 produced artifact → L4 跳过，标注 `N/A`
+从状态文件读取 `meta.verificationMode`，选择对应模板，从构建文件中提取命令。
 
 ### Step 2: 确认修改范围内无红区违规
 
