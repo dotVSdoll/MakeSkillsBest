@@ -10,6 +10,7 @@ dependencies:
     - repo-decompose     # Understand: 需求树 + 证据矩阵
     - mvp-approach       # Understand: 方向验证 | Diagnose: 修复验证
     - security-audit     # Diagnose: 安全扫描
+    - quality-audit      # Diagnose: 代码质量诊断
     - delivery-plan      # Plan: 交付计划
     - task-graph         # Plan: 任务 DAG
     - implementation-map # Bound: 白名单 + 红区
@@ -134,20 +135,22 @@ mvp-approach 方向验证：
 
 ### Phase 3: Diagnose — 诊断问题
 
-**新 skill 调用：`security-audit`** — 四维安全扫描。同时调用 mvp-approach 做修复验证。
+**并行调用：`security-audit` + `quality-audit`** — 安全 + 质量双维扫描。
 
 ```
 动作:
   1. security-audit → 写入 diagnose.securityAudit
      D1 依赖漏洞 / D2 认证缺陷 / D3 注入风险 / D4 敏感信息
-  2. mvp-approach (修复验证) → 写入 diagnose.mvpFixValidation
-     "针对已发现的问题，最小修复方案是什么？"
+  2. quality-audit → 写入 diagnose.qualityAudit (并行)
+     D1 重复代码 / D2 高复杂度 / D3 死代码 / D4 测试薄弱区 / D5 过大模块 / D6 架构退化
+  3. mvp-approach (修复验证) → 写入 diagnose.mvpFixValidation
+     "针对已发现的安全 + 质量问题，最小修复方案是什么？"
 
 阻塞规则:
-  securityAudit.blocksDiagnose == true (存在 CRITICAL 项)
+  securityAudit.blocksDiagnose == true OR qualityAudit.blocksDiagnose == true
     → Diagnose 阻塞，CRITICAL 项自动进入 Plan Fix 的 Phase 1
   releasePolicy.requiresUserConfirmationForProductionFix == true
-    且用户目标是修复生产 bug → STOP. 输出: "⚠️ 当前分支为 pre-alpha，生产修复应在 v1.x 分支进行。确认继续？"
+    且用户目标是修复生产 bug → STOP
 ```
 
 **出口：** `diagnose.status == "done"` → Plan Fix
