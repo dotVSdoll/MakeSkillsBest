@@ -249,6 +249,42 @@ D4 — 回归风险:
 }
 ```
 
+**Diff-Level 检查清单（必须逐条执行）：**
+
+```
+Self-Review 必须读取本轮 git diff，逐条核查:
+
+[1] 所有 modified files 是否在 implementation-map allowedFiles 中？
+    NO → "scope-creep: [file] 不在白名单"
+
+[2] 是否新增了非必要的 import/依赖？
+    YES → "new-dependency: [import] — 需确认必要性"
+
+[3] 是否修改了 public API（导出函数/类型签名）？
+    YES → "api-change: [symbol] — 需确认非 breaking"
+
+[4] 是否修改了与任务无关的函数/代码块？
+    YES → "scope-creep: [file:line] — 非目标修改"
+
+[5] 是否新增了 TODO / FIXME / HACK 注释？
+    YES → "unresolved-marker: [file:line] — 应在修复中解决而非标记"
+
+[6] 是否修改了测试快照（.snap 文件）？
+    YES → "snapshot-change: [file] — 需确认是预期行为变更"
+
+[7] 是否触碰了 architectureContracts 红区？
+    YES → "contract-violation: [file] — 架构契约禁止此修改"
+
+[8] 是否改变了错误处理范式（如 try/catch → Result 类型）？
+    YES → "error-pattern-change: [file] — 与 style-profile 不一致"
+
+[9] 是否引入了新的 linter warning？
+    YES → "new-warning: [file:line] — 需修复或 suppress"
+
+[10] 本次修改是否可以通过更少的代码行完成？
+    YES → "over-implementation: 可简化至 [N] 行"
+```
+
 **selfReview.passed == false → 回到 Fix（修复自审问题）。连续 2 次不通过 → 进入 Decide 重规划。**
 
 **出口：** `selfReview.status == "done"` + `selfReview.passed == true` → Learn

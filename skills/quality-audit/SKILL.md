@@ -76,12 +76,20 @@ dependencies:
   4. 搜索 package.json 中未使用的依赖
 
 严重度:
-  HIGH: 未使用导出 (exported=true, 扇入=0)
+  HIGH: 未使用导出 (exported=true, 扇入=0) → 但必须先排除 public API
   MEDIUM: 未使用内部函数 (exported=false, 扇入=0)
   LOW: TODO > 6 个月未处理 / 未使用依赖
 
+删除保护（删除前必须逐条确认）:
+  [1] 是否被动态 import / require() / 反射调用？
+  [2] 是否是 public API（即使当前仓库内无调用，外部用户可能依赖）？
+  [3] 是否被配置文件（JSON/YAML/TOML）引用？
+  [4] 是否是 plugin / hook / export convention 约定导出？
+  [5] 是否在测试中被引用（测试文件可能在别的目录）？
+  → 5 条全部 NO → 可安全删除。任一条 YES → 标记为 "protected" 不删除。
+
 输出:
-  { "symbol": "oldParser", "file": "src/parser.ts:200-250", "type": "dead-code", "lastModified": "2024-01" }
+  { "symbol": "oldParser", "file": "src/parser.ts:200-250", "type": "dead-code", "lastModified": "2024-01", "protected": false }
 ```
 
 ### D4: 测试薄弱区
@@ -176,7 +184,7 @@ dependencies:
 | # | Agent 借口 | 反驳 |
 |---|---|---|
 | 1 | "死代码不影响运行，不急着删" | 死代码增加阅读成本。每个读这段代码的人都在浪费时间 |
-| 2 | "这个函数虽然长但逻辑清晰" | 清晰 = 你可以拆分。251 行函数 100% 可以拆 |
+| 2 | "这个函数虽然长但逻辑清晰" | >200 行函数默认进入拆分候选。但 Fix 前必须先写 characterization test，确认拆分后行为不变 |
 | 3 | "测试薄弱区以后补" | 核心入口无测试 = 改动即风险。先补测试再优化 |
 | 4 | "架构退化是历史遗留，这轮不动" | 至少标注为技术债并写入 learn。不标注 = 永远不修 |
 
