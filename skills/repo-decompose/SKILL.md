@@ -340,7 +340,28 @@ Step 0.6: 写入共享上下文 meta 区块
 - 依赖: 前置 REQ ID
 - 验证: 一句话可验证标准
 
-**出口：** 完整需求树写入共享上下文，标记 `merge: done`。删除共享上下文文件（下游 skill 不需要）。
+**出口：** 完整需求树写入共享上下文，标记 `merge: done`。
+
+**新增：taskGraphHints — 为下游 task-graph 提供依赖提示。** 在需求树输出中追加：
+
+```json
+"taskGraphHints": {
+  "suggestedBatches": [
+    {
+      "batch": 1,
+      "reqs": ["REQ-A1", "REQ-L1"],
+      "reason": "这两个 REQ 无相互依赖，可并行",
+      "parallelizable": true
+    }
+  ],
+  "suggestedCriticalPath": ["REQ-A1", "REQ-D1", "REQ-L2"],
+  "crossLayerDependencies": [
+    { "from": "REQ-A1 (架构)", "to": "REQ-D1 (数据)", "reason": "模块边界确定后才能追踪数据流" }
+  ]
+}
+```
+
+这些提示帮助 `task-graph` 更准确地建立任务 DAG。删除共享上下文文件（下游 skill 通过 `.repo-loop-state.json` 读取）。
 
 ---
 

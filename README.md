@@ -1,96 +1,99 @@
 # MakeSkillsBest
 
-**生产级 AI Coding Agent 技能包 — 四个紧密协作的 skill，将任何 GitHub 仓库从"陌生代码"变成"可执行的最小方案"。**
+> **让 AI coding agent 从一次性代码生成器，变成基于证据持续推进项目的工程循环执行者。**
 
 ```
-语义理解 → 关系图谱 → 需求拆分 → 最小方案
-semantic-rag → knowledge-graph → repo-decompose → mvp-approach
+Observe → Understand → Plan → Bound → Act → Verify → Learn → Decide
+   ↑                                                          │
+   └──────────────────── continue ────────────────────────────┘
 ```
 
-## 为什么是这四个 Skill？
+## 解决了什么问题？
 
-大多数 AI coding skill 是孤立的——帮你写测试、帮你做 CR。这四个 skill 构成一条**完整流水线**，模仿资深工程师接手陌生项目时的思维过程：
+AI coding agent 最大的问题不是"写不出代码"，而是**不知道做到哪了、该不该继续、下一步该做什么**。每轮对话都从零开始，每次都说"让我看看这个仓库"，每次都改不该改的文件。
 
-| 阶段 | Skill | 回答的问题 |
-|---|---|---|
-| 1️⃣ 理解 | `semantic-rag` | "这个项目是做什么的？" |
-| 2️⃣ 映射 | `knowledge-graph` | "谁调了谁？数据怎么流？" |
-| 3️⃣ 拆分 | `repo-decompose` | "如果要改，从哪里下手？" |
-| 4️⃣ 执行 | `mvp-approach` | "最快能交付的最小版本是什么？" |
+**MakeSkillsBest 用 9 个 skill 构建了一条有状态、有证据、有停止条件的工程循环——让 agent 像工程师一样推进项目，而不是像 chatbot 一样回答问题。**
 
-**关键设计：** 每个 skill 可以独立使用，但管道模式下信息通过共享上下文自动传递，不会跳过步骤。
+## Engineering Loop 架构
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    engineering-loop (总控)                       │
+│  读写 .repo-loop-state.json，调度子 skill，判定继续/停止/回滚     │
+└────────────┬────────────────────────────────────────────────────┘
+             │
+    ┌────────┴──────────────────────────────────────────┐
+    │                                                    │
+    ▼                                                    ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│semantic-rag  │  │knowledge-graph│  │repo-decompose│  │mvp-approach  │
+│ 语义+多语言   │  │ 符号→调用→数据 │  │ 架构+数据+逻辑│  │ 核心路径剪裁  │
+└──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
+        Observe / Understand（已有 4 个）
+
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│delivery-plan │  │  task-graph  │  │implementation│  │verification  │
+│ 分阶段交付    │  │  任务依赖DAG  │  │    -map      │  │   -loop      │
+│              │  │              │  │ 白名单+红区   │  │  五级验证链   │
+└──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
+        Plan + Bound（新增 4 个）              Verify（新增 1 个）
+```
+
+**每个 skill 可独立使用，也可由 engineering-loop 自动调度。所有 skill 通过 `.repo-loop-state.json` 共享状态。**
 
 ## 快速开始（30 秒）
 
 ```bash
-# Claude Code（推荐，支持自动更新）
+# Claude Code（推荐）
 /plugin marketplace add dotVSdoll/MakeSkillsBest
-/plugin install MakeSkillsBest@make-skills-best
 
+# 启动工程循环
+/loop "为这个项目添加基于 JWT 的用户登录功能"
+```
+
+```bash
 # Codex / Cursor / Gemini CLI / Windsurf / 50+ 工具
 npx skills add dotVSdoll/MakeSkillsBest -g
 ```
 
-## 四个 Skill 详解
+## 九大 Skill
 
-### 🔬 `semantic-rag` — 语义分析 + 轻量 RAG
+| 阶段 | Skill | 一句话 |
+|---|---|---|
+| 🔍 Observe | — | 目标识别、规模检测、约束记录（总控内置） |
+| 🧠 Understand | `semantic-rag` | 跨语言语义分析 + 零依赖轻量 RAG |
+| | `knowledge-graph` | 符号表→调用链→数据流→模块依赖 |
+| | `repo-decompose` | 三层并行拆分 + 证据矩阵 + 子 agent 调度 |
+| | `mvp-approach` | 需求树标注（🔴🟡✂️）+ 项目类型分层边界 |
+| 📋 Plan | `delivery-plan` | 需求树 → 分阶段验收标准 + 垂直切片 |
+| | `task-graph` | 拓扑排序 → 并行批次 + 关键路径 |
+| 🔒 Bound | `implementation-map` | 白名单（可修改）+ 红区（禁止触碰）+ 爆炸半径 |
+| ✅ Verify | `verification-loop` | L1 build → L2 --help → L3 command → L4 artifact → L5 content |
+| 🔁 Decide | `engineering-loop` | 5 条停止条件 + continue/stop/replan 判定 |
 
-> 用你喜欢的自然语言解释任何仓库。
+[→ 完整 SKILL.md 目录](skills/)
 
-- 跨语言三层降级：L1 (TS/Py/Go/Rust — 函数级) / L2 (C#/Kotlin — 文件级) / L3 (其他 — 目录级)
-- 零依赖 RAG：AST 边界分块 → 结构化 JSON → 两阶段检索
-- 追问示例："认证逻辑在哪？""数据库怎么连的？"
+## 为什么是 Loop 而不是 Workflow？
 
-[→ 完整 SKILL.md](skills/semantic-rag/SKILL.md)
+| Workflow | Engineering Loop |
+|---|---|
+| 跑完就结束 | 循环推进直到目标完成 |
+| 无状态（每轮从零开始） | `.repo-loop-state.json` 记录"做到哪了" |
+| 步骤顺序固定 | 根据 Decide 阶段动态跳转 |
+| 改错了继续改 | 2 次连续验证失败 → 强制重新规划 |
+| 不区分能不能改 | implementation-map 锁定红区 |
 
-### 🕸️ `knowledge-graph` — 代码知识图谱
+## 安装到不同工具
 
-> 符号表 → 调用链 → 数据流 → 模块依赖，四层递进。
-
-- 按仓库规模自适应深度（quick/standard/deep）
-- 自动检测循环依赖、高扇入/扇出模块、死代码
-- 输出结构化 JSON，为需求拆分提供符号级上下文
-
-[→ 完整 SKILL.md](skills/knowledge-graph/SKILL.md)
-
-### 🔧 `repo-decompose` — 仓库需求拆分
-
-> 架构层 + 数据层 + 逻辑层，主 Agent 调度子 Agent 并行分析。
-
-- 两阶段调度：架构先跑 → 数据+逻辑并行
-- 按仓库规模自适应分片（S/M/L/XL，最多 13 个子 Agent）
-- 共享上下文保证信息透明，子 Agent 不直接互调
-- 主 Agent 空闲期自动拉取 knowledge-graph + semantic-rag
-
-[→ 完整 SKILL.md](skills/repo-decompose/SKILL.md)
-
-### 🎯 `mvp-approach` — 最小可行性方案
-
-> 基于全项目分析，设定最严格的最小边界条件，剪裁核心路径。
-
-- 6 项硬门控：前置分析缺失时拒绝执行
-- 需求树标注（🔴核心/🟡支撑/✂️可砍）→ 边界条件推导 → 最小实现路径
-- 边界不谈判：文件数 ≤ 3、行数 ≤ 200、依赖数 = 0
-
-[→ 完整 SKILL.md](skills/mvp-approach/SKILL.md)
-
-## 管道模式 vs 独立模式
-
-```
-管道模式（全自动）:
-  /decompose https://github.com/immerjs/immer
-  → repo-decompose Phase 0-3（自动调用 knowledge-graph + semantic-rag）
-  → 共享上下文写入 .repo-decompose-context.json
-  → /mvp → 读取共享上下文 → 6 项门控检查 → 输出最小方案
-
-独立模式（按需使用）:
-  /explain https://github.com/immerjs/immer    ← 只看语义
-  /graph src/                                  ← 只建图谱
-  /decompose https://github.com/immerjs/immer  ← 只拆需求
-  /mvp                                         ← 需要上游产物
-```
-
-**管道模式的门控机制确保 agent 不能跳过步骤：** `mvp-approach` 会检查共享上下文中的 6 个字段，任何一个缺失即拒绝执行并告知用户缺少什么。
+| 工具 | 安装方式 | 详情 |
+|---|---|---|
+| **Claude Code** | `/plugin marketplace add` / `npx skills add -a claude-code` | [指南](docs/setup-guide.md#claude-code) |
+| **Codex** | `npx skills add -g -a codex` | [指南](docs/setup-guide.md#codex) |
+| **Cursor** | 复制 SKILL.md → `.cursor/rules/` | [指南](docs/setup-guide.md#cursor) |
+| **Gemini CLI** | `gemini skills install` / `npx skills add -a gemini-cli` | [指南](docs/setup-guide.md#gemini-cli) |
+| **Windsurf** | 复制 SKILL.md → Windsurf Rules | [指南](docs/setup-guide.md#windsurf) |
+| **Copilot** | 复制 SKILL.md → `.github/copilot-instructions.md` | [指南](docs/setup-guide.md#github-copilot) |
+| **手动** | `git clone` + 符号链接 | [指南](docs/setup-guide.md#manual) |
 
 ## 安装到不同工具
 

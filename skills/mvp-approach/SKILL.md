@@ -212,68 +212,25 @@ Step 1: [用户触发/输入]
 
 ### Step 6: 运行验证层（Execution-Proof）
 
-**方案写完了不等于能跑。** 必须从构建文件中提取验证命令，并逐条执行：
+**方案写完了不等于能跑。** 本 step 的五级验证链（L1 build → L2 --help → L3 command → L4 artifact → L5 content）已独立为 `verification-loop` skill。
+
+- **管道模式（被 engineering-loop 调度）：** 本 step 委托给 `verification-loop`。engineering-loop 的 Verify 阶段自动调用。
+- **独立模式（手动使用 mvp-approach）：** 仍执行以下验证快速版：
 
 ```
-验证层级（从弱到强）:
-
-Level 1 — 能否 build?
-  → 从构建文件自动提取编译命令:
-    Makefile → make / make -f Makefile.cbm
-    CMakeLists.txt → cmake --build build/
-    package.json → npm run build / yarn build
-    go.mod → go build ./...
-  → 执行编译 → 必须 PASS
-
-Level 2 — 能否 run --help?
-  → 执行 ./binary --help 或 npm start --help
-  → 必须输出非空帮助文本
-
-Level 3 — 能否跑一个最小 CLI command?
-  → 核心动作的最简形式
-  → 示例: ./graph --query "main"
-  → 必须返回 exit code 0 + 非空输出
-
-Level 4 — 能否产生一个最小产物?
-  → 如果项目产生文件输出 (graph.db, report.json, build/...)
-  → 验证产物存在 + 文件大小 > 0
-
-Level 5 — 能否验证产物内容?
-  → 示例: sqlite3 graph.db "SELECT * FROM symbols LIMIT 1" → 返回一行
-  → 示例: cat report.json | jq '.modules[0]' → 非 null
+快速验证（独立模式）:
+  Level 1 — build:   [自动提取编译命令] → 必须 PASS
+  Level 3 — command: [核心动作的最简命令] → 必须 exit 0 + 有输出
 ```
 
-**提取验证命令的方法：**
-
-```
-1. 扫描构建文件:
-   Makefile → 提取 test / test-*/ check / cbm 等 target
-   package.json → 提取 scripts.test / scripts.verify
-   CMakeLists.txt → 提取 add_test() 或 CTest 配置
-
-2. 识别最小验证路径:
-   取第一个不需要外部服务的 target
-   示例: make test-foundation ✅  vs make test-integration (需要 Docker) ❌
-
-3. 在最终方案中追加验证清单:
-   ✅ L1 build: make -f Makefile.cbm → PASS
-   ✅ L2 help: ./cbm --help → "Codebase Mapper v0.1"
-   ✅ L3 command: ./cbm index ./src → "Indexed 142 symbols"
-   ✅ L4 artifact: ls graph.db → 20480 bytes
-   ✅ L5 verify: ./cbm search "main" → "src/main.c:15"
-```
-
-**如果验证失败：** 不降级交付。回到 Step 4，重新评估最小路径是否真的最小。
+**如果验证失败：** 回到 Step 4，重新评估最小路径是否真的最小。
 
 **最终方案中追加：**
 
 ```
 🔬 运行验证:
   L1 build: [命令] → [结果]
-  L2 help:  [命令] → [结果]
   L3 run:   [命令] → [结果]
-  L4 artifact: [文件] → [大小]
-  L5 verify: [命令] → [结果]
 ```
 
 ---
