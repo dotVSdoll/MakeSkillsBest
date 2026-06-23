@@ -14,6 +14,7 @@ dependencies:
     - task-graph         # Plan: 任务 DAG
     - implementation-map # Bound: 白名单 + 红区
     - verification-loop  # Verify: 验证链
+    - log-journal        # 每 Phase 切换: 写入结构化日志
 ---
 
 # Engineering Loop — 代码优化循环总控
@@ -89,6 +90,8 @@ decision 合法值: "continue" | "stop" | "rollback" | "replan"
 ```
 
 ## 十阶段工作流
+
+**全局规则：每个 Phase 标记为 `done` 后，立即调用 `log-journal` 写入 `.loop-log/` 中的对应日志文件，然后更新 `INDEX.md`。**
 
 ### Phase 1: Observe — 识别与画像
 

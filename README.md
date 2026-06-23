@@ -104,18 +104,6 @@ npx skills add dotVSdoll/MakeSkillsBest -g
 | **Copilot** | 复制 SKILL.md → `.github/copilot-instructions.md` | [指南](docs/setup-guide.md#github-copilot) |
 | **手动** | `git clone` + 符号链接 | [指南](docs/setup-guide.md#manual) |
 
-## 安装到不同工具
-
-| 工具 | 安装方式 | 详情 |
-|---|---|---|
-| **Claude Code** | `/plugin marketplace add` / `npx skills add -a claude-code` | [指南](docs/setup-guide.md#claude-code) |
-| **Codex** | `npx skills add -g -a codex` | [指南](docs/setup-guide.md#codex) |
-| **Cursor** | 复制 SKILL.md → `.cursor/rules/` | [指南](docs/setup-guide.md#cursor) |
-| **Gemini CLI** | `gemini skills install` / `npx skills add -a gemini-cli` | [指南](docs/setup-guide.md#gemini-cli) |
-| **Windsurf** | 复制 SKILL.md → Windsurf Rules | [指南](docs/setup-guide.md#windsurf) |
-| **Copilot** | 复制 SKILL.md → `.github/copilot-instructions.md` | [指南](docs/setup-guide.md#github-copilot) |
-| **手动** | `git clone` + 符号链接 | [指南](docs/setup-guide.md#manual) |
-
 ## 设计原则
 
 这些 skill 从三个顶级开源 skill 仓库提炼精华：

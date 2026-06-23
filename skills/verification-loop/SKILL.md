@@ -95,9 +95,8 @@ meta.verificationMode == "security-tool"    → Template D: Security Tool 验证
 | L3-resources | scripts/references/assets 被正确引用 | `search_content` 确认 SKILL.md 中引用的资源文件实际存在 |
 | L4-eval-prompts | 每个 skill 至少 2 个 eval prompt | 检查 `evals/` 目录下是否有足够测试用例 |
 | L3.5-routing | meta-skill / README / skills/ 目录三方一致性 | README 列出的 skill vs meta-skill 引用的 skill vs 目录实际存在的 skill → 必须一致 |
-L4-eval-prompts | 每个 skill 至少 2 个 eval prompt | 检查 `evals/` 目录 |
-L4.5-regression | 是否有防回归机制 | 检查已知失败模式 / 输出 contract / 自检步骤 / 反合理化表 / 宿主环境差异处理 |
-L5-baseline | with-skill vs without-skill 对比 | 跑 eval prompts → 有 skill 输出 vs 无 skill 输出 → 比较差异 |
+| L4.5-regression | 是否有防回归机制 | 检查已知失败模式 / 输出 contract / 自检步骤 / 反合理化表 / 宿主环境差异处理 |
+| L5-baseline | with-skill vs without-skill 对比 | 跑 eval prompts → 有 skill 输出 vs 无 skill 输出 → 比较差异 |
 
 **L1-L3 强制，L4-L5 有 eval 目录时执行，无则标注 `N/A (no evals/)`。** 如果仓库本身没有 evals，L4-L5 跳过但不标记为 FAIL。
 
