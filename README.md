@@ -2,6 +2,8 @@
 
 > **代码优化工程循环 — 不是帮你加功能，是帮你把现有代码打磨到更好。**
 
+[English](README_EN.md)
+
 <p align="center">
   <img src="https://img.shields.io/badge/version-2.0-blue" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
