@@ -1,6 +1,6 @@
 ---
 name: engineering-loop
-description: "代码优化循环总控 — 12 阶段调度器（Detect→Env→Observe→Understand→Diagnose→Plan→Bound→Fix→Verify→SelfReview→Learn→Decide）。跨 Agent 自适应，环境自动就绪，任务驱动单流程。"
+description: "代码优化循环总控 — 12 阶段生命周期（2 前置门控 Detect+EnvReady，10 阶段优化闭环 Observe→Understand→Diagnose→Plan→Bound→Fix→Verify→SelfReview→Learn→Decide）。跨 Agent 自适应，环境自动就绪，任务驱动单流程。"
 argument-hint: "optimize this repo | audit and fix | analyze and improve"
 dependencies:
   orchestrates:

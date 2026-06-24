@@ -11,20 +11,28 @@
   <img src="https://img.shields.io/badge/phases-12-purple" alt="phases">
 </p>
 
-![MakeSkillsBest Architecture](images/loop-architecture.png)
+---
+
+### TL;DR
+
+MakeSkillsBest is an **engineering loop for AI Coding Agents**. It understands your repo, diagnoses security/quality issues, generates a fix plan, locks modifiable files, then fixes in small steps with self-review. Good for onboarding large repos, managing tech debt, fixing security, reducing complexity. Not for building new features from scratch.
 
 ---
 
 ## Table of Contents
 
 - [What It Is](#what-it-is)
+- [Three Ways to Use](#three-ways-to-use)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
+- [Safety Contract](#safety-contract)
 - [Core Workflow](#core-workflow)
+- [Output Directory](#output-directory)
 - [Full Case Study](#full-case-study)
-- [Skill Ecosystem](#skill-ecosystem)
 - [Output Examples](#output-examples)
+- [Skill Ecosystem](#skill-ecosystem)
 - [How It Compares](#how-it-compares)
+- [What It's Good For](#what-its-good-for)
 - [Key Capabilities](#key-capabilities)
 - [Contributing](#contributing)
 - [License](#license)
@@ -33,7 +41,9 @@
 
 ## What It Is
 
-**MakeSkillsBest is a 12-phase, 13-skill code optimization engineering loop.** It doesn't build new features — it finds existing problems in your code and fixes them safely, traceably, and with style consistency.
+**MakeSkillsBest is a 12-phase, 13-skill code optimization lifecycle.** The first 2 phases (Detect + EnvReady) handle tool detection and environment prep; the remaining 10 phases are executed by `engineering-loop` as a complete **Diagnose → Plan → Bound → Fix → Verify → SelfReview** closed loop.
+
+It doesn't build new features — it finds existing problems in your code and fixes them safely, traceably, and with style consistency.
 
 Common AI coding agent mistakes:
 
@@ -42,14 +52,45 @@ Common AI coding agent mistakes:
 - "Incidentally" refactors modules it shouldn't touch
 - Changes code without knowing whether the fix actually works
 
-MakeSkillsBest solves these with an engineering-grade **Diagnose → Plan → Bound → Fix → Verify → SelfReview** loop.
-
-**Cross-Agent Adaptive:** On first run, automatically detects your AI Coding tool (Claude Code / Codex / Cursor / etc.), reads local configuration, and adapts sub-task dispatch and CLI permissions. No manual configuration needed.
+**Cross-Agent Adaptive:** On first run, automatically detects your AI Coding tool, reads local configuration, and adapts sub-task dispatch and CLI permissions. Detection covers: host tool type, parallel sub-task support, shell command and file write permissions, git workspace status. No manual configuration needed.
 
 **Prerequisites:**
+
 - Any AI Coding Agent that accepts `/skill` or similar instructions
 - A code repository (local path or GitHub URL)
 - Recommended: `git` + the project's language runtime (the Loop auto-detects and prepares)
+
+---
+
+## Three Ways to Use
+
+No mode switching — just express intent in natural language:
+
+### 1. Just Understand the Project
+
+```
+/optimize-loop "Analyze this repo, generate architecture docs and risk report, don't modify code"
+```
+
+The Loop runs through all analysis phases, finds no tasks at Plan → auto-ends, leaving zero code changes.
+
+### 2. Get a Fix Plan First
+
+```
+/optimize-loop "Analyze this repo, generate a fix plan and modification boundaries, don't execute yet"
+```
+
+Stops after the Bound phase — you get a complete fix plan + allowlist/red zones before confirming.
+
+### 3. Let It Fix in Small Steps
+
+```
+/optimize-loop "Reduce core module complexity and verify after each batch of fixes"
+```
+
+Full 12-phase run — each batch verified after execution, problems trigger immediate rollback.
+
+> If no fixable issues are found during diagnosis, the Loop auto-ends after Plan. You're never forced into code changes.
 
 ---
 
@@ -104,6 +145,23 @@ git clone https://github.com/dotVSdoll/MakeSkillsBest.git
 
 ---
 
+## Safety Contract
+
+MakeSkillsBest operates on **least privilege**. You can trust it won't overstep:
+
+| Promise | How It's Enforced |
+|---|---|
+| Won't modify code before locking boundaries | Fixes only execute after `implementation-map` generates an allowlist |
+| Won't touch red-zone files | `implementation-map` auto-detects forbidden modules from architecture contracts and dependency analysis |
+| Won't fake execution results | When environment prep fails, it honestly degrades to static analysis — never pretends a CLI tool ran |
+| All changes are traceable | Every step logged to `.loop-log/`, every commit is an atomic task |
+| Style consistency checked before changes | `style-profile` ensures fixes match existing naming, error handling, and comment conventions |
+| Self-review after every change | 10-point diff audit: scope creep, new deps, API breakage, contract violations… |
+| Consecutive failures trigger stop | 2 verify failures → replan; 2 self-review failures → stop |
+| Diminishing returns auto-stop | 2 consecutive rounds with max severity ≤ LOW → stops to save tokens |
+
+---
+
 ## Core Workflow
 
 ```
@@ -112,6 +170,8 @@ Detect → EnvReady → Observe → Understand → Diagnose → Plan → Bound
      ↑___________________________________________↓
            Decide=continue loops back to Fix or Observe
 ```
+
+The first 2 phases are **one-time gates** (not part of the loop). The remaining 10 form the `engineering-loop` optimization cycle.
 
 | Phase | What It Does | Deliverable |
 |---|---|---|
@@ -128,15 +188,45 @@ Detect → EnvReady → Observe → Understand → Diagnose → Plan → Bound
 | 📝 **Learn** | Capture lessons + generate next-round recommendations | Experience log |
 | 🔁 **Decide** | 8 stop conditions → continue/stop/replan | Decision |
 
-**Unified flow:** v2.0 no longer splits read-only vs. optimize modes. If no fixable issues are found, the Loop auto-ends after Plan. If there are tasks, it enters Fix.
+---
 
-**Auto environment prep:** Creates venv → installs dependencies → copies .env.example. If something can't be automated, it lists what needs manual work and honestly degrades to static analysis.
+## Output Directory
+
+After a run, you'll have reusable assets — not a disposable chat transcript:
+
+```
+docs/loop-docs/
+├── knowledge-graph.md         ← Four-layer graph (symbols→calls→data flow→dependencies)
+├── symbol-index.md            ← Per-file symbol index
+├── call-graph.md              ← Tree-structured call graph from entry points
+├── module-dependencies.md     ← Module dependency matrix + impact analysis
+├── project-overview.md        ← Full project technical doc (per-module deep dive)
+├── architecture.md            ← Architecture doc + data flow + decision points
+└── file-index.md              ← Complete file index (role/deps/modification notes)
+
+.loop-log/
+└── {YYYY-MM-DD}_{repo}-{goal}/
+    ├── 00-detect.md           ← Agent detection + adapter selection
+    ├── 01-env-ready.md        ← Environment readiness + auto-prep
+    ├── 02-observe.md          ← Style profiling
+    ├── 03-understand.md       ← Semantic understanding + direction validation
+    ├── 04-diagnose.md         ← Security audit + quality diagnosis
+    ├── 05-plan.md             ← Fix plan + task DAG
+    ├── 06-bound.md            ← Allowlist + red zones
+    ├── 07-fix.md              ← Per-task fix details
+    ├── 08-verify.md           ← Verification results
+    ├── 09-self-review.md      ← Self-review findings
+    ├── 10-learn.md            ← Lessons learned
+    └── INDEX.md               ← Quick index (searchable by keyword)
+```
 
 ---
 
 ## Full Case Study
 
-A real optimization run on [daily_stock_analysis](https://github.com/ZhuLinsen/daily_stock_analysis) (Python stock analysis platform, ~200 source files):
+A real optimization run on [daily_stock_analysis](https://github.com/ZhuLinsen/daily_stock_analysis) (Python stock analysis platform, ~200 source files).
+
+> Not simulated — from an actual static/execution hybrid optimization test. All numbers correspond to real diffs and compilation output.
 
 ### Input
 
@@ -151,7 +241,7 @@ A real optimization run on [daily_stock_analysis](https://github.com/ZhuLinsen/d
 | **Detect** | Claude Code, Task tool parallelism supported | Security + quality audits run in parallel |
 | **EnvReady** | Python 3.11, venv exists, deps installed | 🟢 Full — all CLI tools available |
 | **Observe** | snake_case naming, try/except error handling, pytest | Style constraints locked |
-| **Understand** | 4 tech docs generated, 12 modules detailed, evidence matrix | Direction: code organization + security hardening |
+| **Understand** | 7 tech docs generated, 12 modules detailed, evidence matrix | Direction: code organization + security hardening |
 | **Diagnose** | 4 security (0C/0H/3M/1L) + 6 quality (0C/2H/3M/1L) | No CRITICALs, HIGH items enter fix plan |
 | **Plan** | 5 tasks, 2 parallel batches | Security first (Batch 1), then code splitting (Batch 2) |
 | **Bound** | 4 allowed files, pipeline/agent/sender red-zoned | Boundaries locked |
@@ -171,51 +261,6 @@ A real optimization run on [daily_stock_analysis](https://github.com/ZhuLinsen/d
 
 ---
 
-## Skill Ecosystem
-
-13 skills organized into four usage groups:
-
-### Analysis — Understanding Your Project
-
-| Skill | When to Use | Standalone Call |
-|---|---|---|
-| `style-profile` | Joining a new project — learn its code style first | `/skill style-profile` |
-| `semantic-rag` | Understanding overall architecture and module responsibilities | `/skill semantic-rag` |
-| `knowledge-graph` | Tracing call chains, data flows, module dependencies | `/skill knowledge-graph` |
-| `repo-decompose` | Decomposing requirements, generating architecture docs | `/skill repo-decompose` |
-| `mvp-approach` | Validating which optimization direction is most feasible | `/skill mvp-approach` |
-
-### Diagnosis — Finding Problems
-
-| Skill | When to Use | Standalone Call |
-|---|---|---|
-| `security-audit` | Checking CVE, auth flaws, injection risks, secret leaks | `/skill security-audit` |
-| `quality-audit` | Checking duplication, complexity, dead code, test gaps | `/skill quality-audit` |
-
-### Execution — Planning & Fixing
-
-| Skill | What It Does |
-|---|---|
-| `delivery-plan` | Generates phased fix plan by security/quality priority |
-| `task-graph` | Builds task dependency DAG + critical path |
-| `implementation-map` | Generates modification allowlist + red zones + blast radius |
-| `verification-loop` | Template-based fix verification (CLI/Library/Skill/Security) |
-
-### Infrastructure
-
-| Skill | What It Does |
-|---|---|
-| `log-journal` | Writes structured logs per phase |
-| `engineering-loop` | 12-phase orchestrator |
-
-All skills can be invoked **independently** — no need to run the full Loop. Example:
-
-```
-/skill security-audit  # Scan current repo → writes to docs/loop-docs/
-```
-
----
-
 ## Output Examples
 
 Excerpt from `docs/loop-docs/project-overview.md` (generated during Understand phase):
@@ -231,15 +276,14 @@ Excerpt from `docs/loop-docs/project-overview.md` (generated during Understand p
 | Method | Line | Purpose |
 |---|---|---|
 | analyze() | 2866 | Main analysis flow — fetch data→build prompt→call LLM→parse→integrity check |
-| _format_prompt() | 3140 | 450-line prompt template — covers technicals+news+market phase+decision instructions |
-| _parse_response() | 3778 | Three-layer parsing defense — JSON parse→json_repair→text regex extraction |
-| _call_litellm_impl() | 2603 | Multi-model fallback: primary→fallback1→fallback2→error |
+| _format_prompt() | 3140 | 450-line prompt template — covers all analysis dimensions |
+| _parse_response() | 3778 | Three-layer parsing defense — JSON→json_repair→text regex |
 
 ### Design Decisions
 
-- **Why analyze() is 270 lines**: Every step has error handling and retry logic — "long" isn't "bloated", it's "deeply defensive".
-- **Why wrap litellm fallback**: litellm Router doesn't support per-model max_tokens differentiation.
-- **Why prompt is inline, not a template file**: Prompt changes = code changes = full git history.
+- **Why analyze() is 270 lines**: Every step has error handling and retries — "long" isn't "bloated", it's "deeply defensive"
+- **Why wrap litellm fallback**: Router doesn't support per-model max_tokens differentiation
+- **Why prompt is inline**: Prompt changes = code changes = full git history
 ```
 
 Excerpt from `docs/loop-docs/call-graph.md`:
@@ -252,28 +296,95 @@ main() [main.py:42]
 │   ├── parseEnvFile() [config.py:30]
 │   └── validateSchema() [config.py:55]
 ├── Database.connect() [db/index.ts:10]       ← L48: Connection pool init
-├── Router.register() [api/router.ts:15]      ← L52: Register all API routes
 └── Server.listen() [external]                ← L60: Start HTTP listener
 ```
 
 ---
 
+## Skill Ecosystem
+
+13 skills organized into four usage groups. **All skills can be invoked independently — no need to run the full Loop.**
+
+### When to Use the Full Loop vs. a Single Skill?
+
+| Scenario | Recommendation |
+|---|---|
+| Onboarding a large unfamiliar repo | Full `/optimize-loop` |
+| Just want to understand architecture | Run `semantic-rag` + `knowledge-graph` standalone |
+| Just want a security check | Run `security-audit` standalone |
+| About to edit code, worried about boundaries | Run `implementation-map` standalone |
+| Made changes, want to prove nothing broke | Run `verification-loop` standalone |
+| Just want project documentation | Run `repo-decompose` standalone |
+
+### Analysis — Understanding Your Project
+
+| Skill | When to Use |
+|---|---|
+| `style-profile` | Joining a new project — learn its code style first |
+| `semantic-rag` | Understanding overall architecture and module responsibilities |
+| `knowledge-graph` | Tracing call chains, data flows, module dependencies |
+| `repo-decompose` | Decomposing requirements, generating architecture docs |
+| `mvp-approach` | Validating which optimization direction is most feasible |
+
+### Diagnosis — Finding Problems
+
+| Skill | When to Use |
+|---|---|
+| `security-audit` | Checking CVE, auth flaws, injection risks, secret leaks |
+| `quality-audit` | Checking duplication, complexity, dead code, test gaps |
+
+### Execution — Planning & Fixing
+
+| Skill | What It Does |
+|---|---|
+| `delivery-plan` | Generates phased fix plan by security/quality priority |
+| `task-graph` | Builds task dependency DAG + critical path |
+| `implementation-map` | Generates modification allowlist + red zones + blast radius |
+| `verification-loop` | Template-based fix verification (CLI/Library/Skill/Security) |
+
+### Infrastructure
+
+| Skill | What It Does |
+|---|---|
+| `log-journal` | Writes structured logs per phase |
+| `engineering-loop` | Orchestrator — 2 gates + 10-phase optimization cycle |
+
+---
+
 ## How It Compares
 
-| Approach | What It Does | vs. MakeSkillsBest |
+| Approach | Common Failure Mode | How MakeSkillsBest Prevents It |
 |---|---|---|
-| Direct Agent fix | "Fix this bug" | No boundaries, no style checks, no self-review — Agent may break adjacent code |
-| Lint / SonarQube | Static rule checking | Finds problems only — no fixing, no verification, no tech docs |
-| Dependabot / Renovate | Dependency updates | Only versions — no code quality, injection audit, or architecture decay |
-| AI Code Review | PR-level diff review | Post-hoc — problems are already committed when found |
-| **MakeSkillsBest** | **Full engineering loop** | **Analyze→Diagnose→Plan→Bound→Fix→Verify→SelfReview→Learn** — a complete closed loop |
+| Direct Agent fix | Scope creep, Agent rewrites adjacent code | `implementation-map` allowlist + red zones + SelfReview |
+| Lint / SonarQube | Reports rules but doesn't know how to fix | `delivery-plan` + `task-graph` generate executable fix plan |
+| Dependabot / Renovate | Upgrades deps without reachability check | CVE × reachability × exposure × upgradeRisk ranking |
+| AI Code Review | Post-hoc — problems already committed | Bound before changes, Verify + SelfReview after |
+| **MakeSkillsBest** | **Full analyze→diagnose→plan→bound→fix→verify→self-review→learn closed loop** | |
+
+---
+
+## What It's Good For
+
+**Good for:**
+
+- Medium to large existing codebases
+- Projects needing security audit, quality governance, dead code cleanup, complexity reduction
+- Multi-maintainer projects where AI style consistency and boundary safety matter
+- Engineering workflows: plan first, fix in small steps, verify after each batch
+
+**Not good for:**
+
+- Generating a new app or feature from scratch
+- One-shot massive rewrites (the Loop philosophy is small-step iteration)
+- Environments without git or where dependency installation is forbidden
+- Scenarios where you want the Agent to make large-scale changes without confirmation
 
 ---
 
 ## Key Capabilities
 
-- **Cross-Agent Adaptive** — Auto-detects Claude Code / Codex / Cursor, adapts dispatch model and permissions
-- **Auto Environment Prep** — Creates venv → installs deps → copies .env; honestly degrades when blocked
+- **Cross-Agent Adaptive** — Auto-detects host tool (Claude Code / Codex / Cursor / Gemini CLI / Windsurf), reads local config, adapts dispatch model and permissions
+- **Auto Environment Prep** — Creates venv → installs deps → copies .env; honestly degrades to static analysis when blocked
 - **Style-Adaptive Fixes** — Modified code is indistinguishable from human-written; matches naming, error handling, and comment conventions
 - **Security-First Prioritization** — CVEs sorted by reachability × exposure × upgradeRisk; won't break your project for an unreachable dev dependency
 - **Dead Code Protection** — 5-point deletion checklist: dynamic import? public API? config reference? plugin convention? test reference? All NO → safe to delete
