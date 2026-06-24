@@ -1,7 +1,7 @@
 ---
 name: engineering-loop
-description: "代码优化循环总控 — 10 阶段调度器（Observe→Understand→Diagnose→Plan→Bound→Fix→Verify→SelfReview→Learn→Decide）。核心目标：优化现有代码，非构建新功能。内置安全审计、风格画像、自我审查。"
-argument-hint: "optimize this repo | audit and fix | /read-loop | /optimize-loop"
+description: "代码优化循环总控 — 12 阶段调度器（Detect→Env→Observe→Understand→Diagnose→Plan→Bound→Fix→Verify→SelfReview→Learn→Decide）。跨 Agent 自适应，环境自动就绪，任务驱动单流程。"
+argument-hint: "optimize this repo | audit and fix | analyze and improve"
 dependencies:
   orchestrates:
     - style-profile      # Observe: 提取代码风格
@@ -24,56 +24,39 @@ dependencies:
 
 **本 Loop 的目标是优化现有代码，不是构建新功能。** 它不帮你加登录、加 API、加 UI——它帮你发现代码中的问题、安全漏洞、风格不一致、架构退化，并小步修复。
 
-## 核心循环
+## 运行模式
+
+**本 skill 必须以 `inline` 模式运行**，由父 Agent 直接执行编排逻辑。子阶段任务 dispatch 为独立 subagent 调用，父进程做超时控制和结果收割。
+
+> 本 skill 以 inline 模式运行。在不同 Agent 工具中，确保总控由父进程直接执行编排。
+
+---
+
+## 核心循环（12 阶段）
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│               Code Optimization Loop (10 phases)                     │
-│                                                                      │
-│  Observe        Understand         Diagnose          Plan Fix        │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │style     │  │semantic-rag  │  │security-audit│  │delivery-plan │ │
-│  │-profile  │→ │knowledge     │→ │(D1-D4 扫描)  │→ │task-graph    │ │
-│  │repoType  │  │-graph        │  │mvp-approach  │  │              │ │
-│  │releasePol│  │repo-decompose│  │(修复验证)     │  │              │ │
-│  └──────────┘  │mvp-approach  │  └──────────────┘  └──────┬───────┘ │
-│                │(方向验证)     │                           │        │
-│                └──────────────┘                           ▼        │
-│                                                    ┌──────────────┐ │
-│                                                    │ Bound Fix    │ │
-│                                                    │implementation│ │
-│                                                    │-map          │ │
-│       ┌─────────────────────────────────────────────┴──┬───────────┘ │
-│       │                                                │             │
-│       ▼                                                ▼             │
-│  ┌─────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │  Fix    │  │   Verify     │  │ Self-Review  │  │    Learn     │  │
-│  │执行修复  │→ │ 验证修复正确  │→ │ Loop审查自己  │→ │  沉淀经验    │  │
-│  │(style   │  │              │  │ 的修改       │  │              │  │
-│  │ profile)│  │              │  │              │  │              │  │
-│  └─────────┘  └──────────────┘  └──────────────┘  └──────┬───────┘  │
-│                                                          │         │
-│                                                          ▼         │
-│                                                    ┌──────────────┐ │
-│                                                    │   Decide     │ │
-│                                                    │继续/停止/重划 │ │
-│                                                    └──────────────┘ │
-└──────────────────────────────────────────────────────────────────────┘
+Detect → EnvReady → Observe → Understand → Diagnose → Plan → Bound
+    → Fix → Verify → SelfReview → Learn → Decide
+     ↑___________________________________________↓
+            Decide=continue 时回到 Fix 或 Observe
 ```
+
+**Detect 和 EnvReady 是 Loop 启动时的两个前置门控，不参与后续循环。**
+
+---
 
 ## PRECONDITIONS — 硬门控
 
 ```
 [1] 仓库路径可访问？
-    NO → STOP. 输出: "❌ 找不到仓库"
+    NO → STOP. "❌ 找不到仓库"
 
 [2] 用户意图已表达？
-    /optimize-loop: 需要 goal.statement (如 "修复安全漏洞" / "统一错误处理风格")
-    /read-loop:     goal.statement 可为 "理解此仓库"
-    NO → STOP. 输出: "❌ 请告诉我你想优化什么。示例: '修复安全漏洞' / '统一错误处理'"
+    goal.statement 已通过用户输入或上下文获得
+    NO → STOP. "❌ 请告诉我你想做什么。示例: '分析这个仓库' / '修复安全漏洞'"
 
-[3] .repo-loop-state.json format valid？
-    不存在 → 初始化
+[3] .repo-loop-state.json 格式有效？
+    不存在 → 在 Phase 0 完成检测后初始化
     存在 → 跑 schema 校验
     失败 → STOP
 ```
@@ -82,37 +65,258 @@ dependencies:
 
 ```
 必检字段:
-  meta:  { repo, language, scale, loopCount, repoType, deliveryMode, styleProfile }
+  meta:  { repo, language, scale, loopCount, repoType, adapterConfig, environmentTier, styleProfile }
   goal:  { statement, type, stopCondition }
-  observe / understand / diagnose / plan / bound / fix / verify / selfReview / learn / decide
+  detect / envReady / observe / understand / diagnose / plan / bound / fix / verify / selfReview / learn / decide
 
-status 合法值: "pending" | "running" | "done" | "failed" | "blocked"
+status 合法值: "pending" | "running" | "done" | "failed" | "blocked" | "skipped"
 decision 合法值: "continue" | "stop" | "rollback" | "replan"
 ```
 
-## 十阶段工作流
+---
 
-**全局规则：每个 Phase 标记为 `done` 后，立即调用 `log-journal` 写入 `.loop-log/` 中的对应日志文件，然后更新 `INDEX.md`。**
+## Phase 0: Tool Detection — 检测 Agent 工具并适配
 
-### Phase 1: Observe — 识别与画像
+**目标：** 确定当前运行在哪个 AI Coding Agent 上，读取其本地配置，确定能力边界。
 
-**新 skill 调用：`style-profile`** — 检测代码风格、命名约定、错误处理模式。
+**这是 Loop 的入口门控——不完成此阶段不进 Phase 0.5。**
+
+### Step 0.1: 检测 Agent 工具
+
+按以下优先级检测，命中即停止：
+
+```
+检测顺序:
+  1. 检查环境变量:
+     各 Agent 工具的 HOME/CONFIG 环境变量 → 确定当前工具
+
+  2. 检查配置目录:
+     ~/.claude/   存在? → Claude Code
+     ~/.codex/    存在? → Codex
+     .cursor/     存在? → Cursor
+     其他工具的约定目录 → 对应工具
+
+  3. 检查已知的工具特征文件:
+     项目根有 .claude/ 目录 → Claude Code
+     项目根有 .codex/ 目录 → Codex
+     项目根有 .cursor/rules/ → Cursor
+
+  4. 以上全不命中 → "unknown"（使用 Fallback 适配）
+```
+
+### Step 0.2: 加载 Agent Adapter
+
+根据检测结果，按对应适配器的指令集执行：
+
+#### Claude Code Adapter
+
+```
+检测特征: ~/.claude/ 或 CLAUDE_CODE_CONFIG 环境变量
+
+配置读取:
+  - 读 ~/.claude.json → 获取已安装 plugin、skill 目录
+  - 读 .claude/ 项目目录 → 获取项目 skill
+
+能力判定:
+  子任务调度:
+    可用方式: Task tool 或 /skill 命令
+    子 agent 有内置超时
+    子 agent 可调用其他 skill
+
+  CLI 命令执行:
+    Bash tool 可执行任意命令
+    网络命令需 allowlist
+
+适配到状态文件:
+  写入 meta.adapterConfig = {
+    "agent": "claude-code",
+    "skillDir": "~/.claude/skills/",
+    "subtaskModel": "Task tool",
+    "hasTimeout": true,
+    "cliAllowed": true,
+    "networkAllowed": "allowlist"
+  }
+```
+
+#### Codex Adapter
+
+```
+检测特征: ~/.codex/ 或 CODEX_HOME
+
+配置读取:
+  - npx skills 管理的全局 skill 目录
+  - Codex 原生 subagent 配置
+
+能力判定:
+  子任务调度: subagent tool
+  超时: 内置
+  CLI: Bash tool
+
+适配到状态文件:
+  写入 meta.adapterConfig = {
+    "agent": "codex",
+    "subtaskModel": "subagent",
+    "hasTimeout": true
+  }
+```
+
+#### Fallback Adapter（通用模式）
+
+```
+检测特征: 以上全不命中
+
+能力判定:
+  子任务调度: 无法 spawn 子 agent → 全部内联执行
+  超时: 无 → 需用户手动中断
+  CLI: 尝试 run_command（取决于 Agent 是否支持）
+
+适配到状态文件:
+  写入 meta.adapterConfig = {
+    "agent": "unknown",
+    "subtaskModel": "inline-only",
+    "hasTimeout": false,
+    "cliAllowed": "unknown"
+  }
+
+⚠️ Fallback 模式下，Diagnose 阶段的 security-audit 和 quality-audit
+  无法并行运行——只能串行内联执行。Loop 整体耗时可能显著增加。
+```
+
+---
+
+## Phase 0.5: Environment Readiness Gate — 确保项目可运行
+
+**目标：** 在进入 Diagnose 之前，确保项目有可运行的验证环境。不是一个"全新安装"阶段——只做缺失的必要准备。
+
+**这是 Diagnose 的前置门控。**
+
+### Step 0.5.1: 环境分级检测
+
+```
+检测流程（按项目类型自动选择）:
+
+Python 项目 (pyproject.toml / requirements.txt / setup.py):
+  [1] python --version → 记录版本
+  [2] venv 是否存在? (.venv/ 或 venv/)
+      NO → 标记 NEEDS_VENV
+  [3] 依赖是否安装? (pip check 或 import 关键包)
+      NO → 标记 NEEDS_DEPS
+  [4] .env 是否存在?
+      NO 且 .env.example 存在 → 标记 NEEDS_ENV
+  [5] 测试框架可用? (pytest --version)
+      NO → 标记 NEEDS_TEST
+
+Node.js 项目 (package.json):
+  [1] node --version
+  [2] node_modules/ 存在?
+      NO → 标记 NEEDS_DEPS
+  [3] npm test 可运行?
+      NO → 标记 NEEDS_TEST
+
+Go 项目 (go.mod):
+  [1] go version
+  [2] go build ./... 可运行?
+  [3] go test ./... 可运行?
+
+Rust 项目 (Cargo.toml):
+  [1] cargo --version
+  [2] cargo build / cargo test
+
+未知项目:
+  跳过自动检测 → 标记 environmentTier = "unknown"
+```
+
+### Step 0.5.2: 环境就绪等级
+
+```
+🟢 Full — 全部就绪:
+  venv + 全部依赖 + 测试框架可用 + .env 配置完成
+  → 安全/质量审计可用真实 CLI 数据
+
+🟡 Partial — 部分就绪:
+  venv + 依赖安装，但无测试数据或缺少 .env
+  → CLI 审计可用，测试受限
+
+🟠 Minimal — 最小可用:
+  仅有运行时（python/node），无项目依赖
+  → 只能做静态分析，不能做运行时验证
+
+🔴 Sandbox-only — 沙箱隔离:
+  无项目运行时，无法安装依赖
+  → 仅代码阅读 + 静态分析 + 文件拆分
+```
+
+### Step 0.5.3: 自动环境准备
+
+```
+根据 adapterConfig 和检测结果，自动执行（权限内）:
+
+NEEDS_VENV:
+  python -m venv .venv
+  → 成功: 标记 venv ready
+  → 失败: 告知原因，降级 environmentTier
+
+NEEDS_DEPS:
+  .venv/Scripts/pip install -r requirements.txt  (Windows)
+  .venv/bin/pip install -r requirements.txt      (Unix)
+  npm install                                     (Node)
+  → 成功: 标记 deps ready
+  → 失败: 列出缺失的包，降级 environmentTier
+
+NEEDS_ENV:
+  cp .env.example .env
+  → 成功: 标记 env ready，提示用户填入实际值
+  → 失败: 告知原因
+
+NEEDS_TEST:
+  pip install pytest  (如果缺失)
+  npm install --include=dev  (如果缺失)
+  → 成功: 标记 test ready
+  → 失败: 降级 environmentTier
+
+超出权限的操作:
+  需要数据库服务 → 提示开发者手动启动
+  需要 Docker → 提示开发者
+  需要外部 API key → 提示开发者在 .env 中填入
+```
+
+### Step 0.5.4: 写入状态
+
+```
+写入 .repo-loop-state.json:
+  meta.environmentTier = "🟢 full" | "🟡 partial" | "🟠 minimal" | "🔴 sandbox-only"
+  envReady.status = "done"
+  envReady.checks = { venv: true, deps: true, env: true, test: true }
+  envReady.autoPrepared = ["venv", "deps"]  // 本次自动完成的准备
+  envReady.manualNeeded = ["数据库服务需要手动启动"]  // 需要开发者的
+```
+
+**出口：** `envReady.status == "done"` → Observe
+
+---
+
+## Phase 1: Observe — 识别与画像
+
+**调用：`style-profile`** — 检测代码风格、命名约定、错误处理模式。
 
 ```
 动作:
   1. 调用 style-profile → 写入 meta.styleProfile
   2. 检测语言/框架/规模
-  3. 判定 repoType（主导类型 + 次级能力）— 同上版本规则
-  4. 判定 deliveryMode（/read-loop vs /optimize-loop）
-  5. 检测 releaseChannel / testProfiles
-  6. 写入 meta.currentPhase = "observe"
+  3. 判定 repoType（主导类型 + 次级能力）
+  4. 检测 releaseChannel / testProfiles
+  5. 写入 meta.currentPhase = "observe"
 
 style-profile 产出: naming / errorHandling / codeOrganization / testing / comments 五个维度
+
+注意: 不再判定 deliveryMode。流程由后续阶段的 taskGraph 节点数驱动。
 ```
 
 **出口：** meta 完整 + styleProfile 已写入 → Understand
 
-### Phase 2: Understand — 深度理解 + 方向验证
+---
+
+## Phase 2: Understand — 深度理解 + 方向验证
 
 ```
 动作（按依赖顺序，不可跳步）:
@@ -133,29 +337,48 @@ mvp-approach 方向验证：
 
 **出口：** `understand.*.status == "done"` + `understand.chosenDirection` 非空 → Diagnose
 
-### Phase 3: Diagnose — 诊断问题
+---
+
+## Phase 3: Diagnose — 诊断问题
 
 **并行调用：`security-audit` + `quality-audit`** — 安全 + 质量双维扫描。
 
 ```
 动作:
   1. security-audit → 写入 diagnose.securityAudit
-     D1 依赖漏洞 / D2 认证缺陷 / D3 注入风险 / D4 敏感信息
+     根据 environmentTier 选择执行方式:
+       🟢🟡: 使用真实 CLI 工具 (pip-audit / npm audit / cargo audit)
+       🟠🔴: 使用静态扫描 (读依赖文件 + 搜索代码模式)
+     四个维度扫描:
+       D1 依赖漏洞 / D2 认证缺陷 / D3 注入风险 / D4 敏感信息
+
   2. quality-audit → 写入 diagnose.qualityAudit (并行)
-     D1 重复代码 / D2 高复杂度 / D3 死代码 / D4 测试薄弱区 / D5 过大模块 / D6 架构退化
+     根据 environmentTier 选择执行方式:
+       🟢: pytest --cov / coverage + 真实测试数据
+       🟡🟠🔴: 静态分析 (AST 复杂度 / 文件行数 / 搜索重复模式)
+     六个维度扫描:
+       D1 重复代码 / D2 高复杂度 / D3 死代码 / D4 测试薄弱区 / D5 过大模块 / D6 架构退化
+
   3. mvp-approach (修复验证) → 写入 diagnose.mvpFixValidation
      "针对已发现的安全 + 质量问题，最小修复方案是什么？"
 
 阻塞规则:
   securityAudit.blocksDiagnose == true OR qualityAudit.blocksDiagnose == true
     → Diagnose 阻塞，CRITICAL 项自动进入 Plan Fix 的 Phase 1
-  releasePolicy.requiresUserConfirmationForProductionFix == true
-    且用户目标是修复生产 bug → STOP
+
+⚠️ environmentTier 影响诊断置信度:
+  🟢 Full → 高置信度（真实数据）
+  🟡 Partial → 中置信度（混合）
+  🟠 Minimal → 低置信度（仅静态分析）
+  🔴 Sandbox-only → 最低置信度（仅代码阅读）
+  诊断结果中标注 confidenceLevel 和 environmentTier。
 ```
 
 **出口：** `diagnose.status == "done"` → Plan Fix
 
-### Phase 4: Plan Fix — 制定修复计划
+---
+
+## Phase 4: Plan Fix — 制定修复计划
 
 ```
 动作:
@@ -163,11 +386,18 @@ mvp-approach 方向验证：
      任务类型: bugfix / security-fix / style-fix / refactor-safe / test-hardening
   2. task-graph → 写入 plan.taskGraph
      包含共享文件冲突检测（同一文件被两个任务修改 → 不可并行）
+
+统一流程判断:
+  plan.taskGraph.nodes.length == 0 ?
+    YES → 无修复任务。跳过 Fix/Verify/SelfReview，直接进入 Learn → Decide(stop)
+    NO  → 进入 Bound → Fix
 ```
 
-**出口：** `plan.*` 非空 → Bound Fix
+**出口：** `plan.*` 非空 → Bound Fix（如有任务）或 Learn（如无任务）
 
-### Phase 5: Bound Fix — 锁定修改边界
+---
+
+## Phase 5: Bound Fix — 锁定修改边界
 
 ```
 动作:
@@ -178,12 +408,12 @@ mvp-approach 方向验证：
 
 **出口：** `bound.summary.withinBounds == true` → Fix
 
-### Phase 6: Fix — 执行修复（受风格约束）
+---
+
+## Phase 6: Fix — 执行修复（受风格约束）
 
 ```
-read-only 模式: 跳过 Fix/Verify/SelfReview，直接进入 Learn
-
-delivery 模式:
+动作:
   1. 加载 meta.styleProfile → 所有代码修改必须匹配检测到的风格
   2. 从 plan.taskGraph.batches[0] 取下一个任务批次
   3. 每任务:
@@ -201,11 +431,19 @@ delivery 模式:
 
 **出口：** `fix.status == "done"` → Verify
 
-### Phase 7: Verify — 验证修复
+---
+
+## Phase 7: Verify — 验证修复
 
 ```
 动作:
   1. verification-loop (按 verificationMode 选模板) → 写入 verify
+     根据 environmentTier:
+       🟢 Full: 完整五级验证链 (build → test → run)
+       🟡 Partial: build + 编译检查
+       🟠🟡: 语法编译检查
+       🔴 Sandbox-only: py_compile / tsc --noEmit 静态检查
+
   2. verify.failedCount == 0 → SelfReview
      > 0 且 consecutiveFailures < 2 → 回到 Fix
      ≥ 2 → 强制 Decide
@@ -213,9 +451,11 @@ delivery 模式:
 
 **出口：** `verify.status == "done"` → SelfReview
 
-### Phase 8: Self-Review — Loop 自我审查
+---
 
-**新增阶段。Loop 审查自己本轮的所有修改。**
+## Phase 8: Self-Review — Loop 自我审查
+
+**Loop 审查自己本轮的所有修改。**
 
 ```
 审查维度:
@@ -241,9 +481,7 @@ D4 — 回归风险:
 {
   "selfReview": {
     "passed": true|false,
-    "issues": [
-      { "dimension": "style-variance", "file": "src/auth.ts:30", "detail": "使用了 snake_case 但项目约定 camelCase" }
-    ],
+    "issues": [...],
     "recommendation": "pass | fix-and-reverify | abort-and-replan"
   }
 }
@@ -252,65 +490,95 @@ D4 — 回归风险:
 **Diff-Level 检查清单（必须逐条执行）：**
 
 ```
-Self-Review 必须读取本轮 git diff，逐条核查:
-
 [1] 所有 modified files 是否在 implementation-map allowedFiles 中？
-    NO → "scope-creep: [file] 不在白名单"
-
 [2] 是否新增了非必要的 import/依赖？
-    YES → "new-dependency: [import] — 需确认必要性"
-
 [3] 是否修改了 public API（导出函数/类型签名）？
-    YES → "api-change: [symbol] — 需确认非 breaking"
-
 [4] 是否修改了与任务无关的函数/代码块？
-    YES → "scope-creep: [file:line] — 非目标修改"
-
 [5] 是否新增了 TODO / FIXME / HACK 注释？
-    YES → "unresolved-marker: [file:line] — 应在修复中解决而非标记"
-
 [6] 是否修改了测试快照（.snap 文件）？
-    YES → "snapshot-change: [file] — 需确认是预期行为变更"
-
 [7] 是否触碰了 architectureContracts 红区？
-    YES → "contract-violation: [file] — 架构契约禁止此修改"
-
 [8] 是否改变了错误处理范式（如 try/catch → Result 类型）？
-    YES → "error-pattern-change: [file] — 与 style-profile 不一致"
-
 [9] 是否引入了新的 linter warning？
-    YES → "new-warning: [file:line] — 需修复或 suppress"
-
 [10] 本次修改是否可以通过更少的代码行完成？
-    YES → "over-implementation: 可简化至 [N] 行"
 ```
 
 **selfReview.passed == false → 回到 Fix（修复自审问题）。连续 2 次不通过 → 进入 Decide 重规划。**
 
 **出口：** `selfReview.status == "done"` + `selfReview.passed == true` → Learn
 
-### Phase 9: Learn — 沉淀经验
+---
+
+## Phase 9: Learn — 沉淀经验
 
 ```
 动作:
-  1. 汇总: 完成的任务 / 验证结果 / 修改文件 / 发现的安全问题
+  1. 汇总: 完成的任务 / 验证结果 / 修改文件 / 发现的安全/质量问题
   2. 提取教训: success / blocker / insight
-  3. 生成下一轮建议
+  3. 记录本轮诊断的最高严重度 → learn.roundMaxSeverity
+  4. 生成下一轮建议
 ```
 
-### Phase 10: Decide — 判定
+---
+
+## Phase 10: Decide — 判定
 
 ```
-停止条件 (按优先级):
-  [0] deliveryMode == "read-only" → stop
-  [1] 所有任务已完成 → stop
-  [2] verify.consecutiveFailures ≥ 2 → replan
-  [3] selfReview 连续 2 次不通过 → replan
-  [4] goal.stopCondition 已满足 → stop
-  [5] 触及红区 → stop (人工确认)
-  [6] loopCount ≥ 10 → stop
+停止条件 (按优先级，命中即停止):
+
+  [1] plan.taskGraph 初始为空（无可修复任务）→ stop
+     输出: "✅ 未发现需要修复的问题。"
+
+  [2] 所有任务已完成 → stop
+     输出: "✅ 本轮所有 [N] 个任务已全部完成。"
+
+  [3] verify.consecutiveFailures ≥ 2 → replan
+     输出: "⚠️ 连续 2 次验证失败，当前方案可能不可行。重新规划。"
+
+  [4] selfReview 连续 2 次不通过 → replan
+     输出: "⚠️ 连续 2 次自审不通过——修改质量存在问题。重新规划。"
+
+  [5] goal.stopCondition 已满足 → stop
+     输出: "✅ 已达成目标: [goal.stopCondition]"
+
+  [6] 触及红区 → stop (人工确认)
+     输出: "🛑 修改触及禁止区域 [forbiddenZone]。需要人工确认。"
+
+  [7] 收益递减 — 最近 2 轮的 maxSeverity ≤ LOW → stop
+     输出: "⏸️ 连续 2 轮最高严重度仅为 LOW，收益已递减。停止优化。"
+
+  [8] loopCount ≥ 10 → stop
+     输出: "⏸️ 已达最大循环次数 (10)。停止。"
 
 默认: continue → 回到 Fix (下一批次) 或 Observe (新目标)
+```
+
+**新条件 [7] 的设计理由：** 如果 Loop 连续两轮只能发现 LOW 级别问题（如格式不一致、注释缺失），继续运行就是浪费 tokens。收益递减时应该停止，把决策权还给开发者。
+
+---
+
+## 子任务调度策略
+
+**总控必须以 inline 模式运行。** 子阶段任务通过当前 Agent 的原生子任务机制 dispatch：
+
+### 通用调度伪代码
+
+```
+run_phase(phase_name):
+  log-journal.write(phase_name, "running")
+
+  for subtask in phase.tasks:
+    if adapter.has_subagent:
+      result = dispatch_subagent(subtask, budget=subtask.budget)
+    else:
+      result = execute_inline(subtask)
+
+    if result.timed_out:
+      record_timeout(subtask)
+      continue  // 跳过该子任务
+
+    write_to_state(result)
+
+  log-journal.write(phase_name, "done")
 ```
 
 ---
@@ -323,3 +591,15 @@ Self-Review 必须读取本轮 git diff，逐条核查:
 | 2 | "自审不通过但我肉眼看了没问题" | 自审是机器对机器的检查。人工意见不能覆盖自审失败 |
 | 3 | "顺手把旁边的函数也重构了" | scope-creep。Fix 阶段只修改白名单文件 |
 | 4 | "安全审计扫出的 MEDIUM 项不重要" | CRITICAL 阻塞 Diagnose，HIGH 进入 Plan。不忽略 |
+| 5 | "环境没准备好，跳过诊断工具的 CLI 检查" | 环境准备是 Phase 0.5 的责任。如果没准备好就标 🔴 并诚实降级，不能假装检查了 |
+| 6 | "子任务超时了，我自己大致分析一下代替" | 超时要记录原因并降级。手动"大致分析" = 无证据猜测，破坏整个 Loop 的可追溯性 |
+| 7 | "Fallback 模式下连续 LOW 修复也值得做" | 停止条件 [7] 不分模式——LOW 级别修复做 2 轮就够了，后面的收益不抵 token 成本 |
+
+## 验证清单
+
+- [ ] Phase 0 检测到 Agent 工具，adapterConfig 写入 meta
+- [ ] Phase 0.5 environmentTier 非空，envReady.autoPrepared 记录自动完成的操作
+- [ ] 所有阶段按顺序执行，未跳过（除非 taskGraph 为空）
+- [ ] 每个子任务有超时预算和结果记录
+- [ ] Decide 的 8 条停止条件全部可命中
+- [ ] .loop-log/ 中每个 Phase 有对应日志

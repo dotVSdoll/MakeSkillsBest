@@ -1,6 +1,6 @@
 # 安装指南 — 如何在不同 AI Coding 工具中加载 MakeSkillsBest
 
-## Claude Code（推荐）
+## 通用安装（适用于任何工具的 skill 系统）
 
 ### 方式 1: Marketplace（支持自动更新）
 

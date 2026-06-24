@@ -1,252 +1,313 @@
 ---
 name: semantic-rag
-description: "语义分析与多语言解释 — 三层降级深度确保跨语言不翻车；AST 边界分块 + 结构化 JSON + 两阶段检索实现零依赖轻量 RAG。repo-decompose Phase 2 的语义卡来源，mvp-approach 的方向收束依据。"
-argument-hint: "explain [repo] in Chinese | what does [project] do | ask [repo] where is auth logic"
+description: "语义分析与项目概览 — 三层降级深度跨语言分析，产出完整项目技术文档和零依赖 RAG 索引。每个模块有职责分析、设计决策、上下游关系。"
+argument-hint: "explain [repo] | what does [project] do | project overview"
 triggers:
   - "这个项目是做什么的"
   - "解释一下这个仓库"
-  - "用中文解释"
   - "项目架构"
   - "认证逻辑在哪"
 ---
 
-# Semantic RAG — 语义分析与多语言解释
+# Semantic RAG — 语义分析与项目概览
 
 ## 概述
 
-两步走：
-1. **摄入时** — 按 AST 边界将代码切块，为每块写 ≤25 字摘要，存为 JSON 索引
-2. **查询时** — 关键词命中 → Agent 语义排序 → Top 5
+**不是写摘要——是写完整的项目技术文档。** 两步产出：
 
-**零外部依赖。** 不需要向量数据库、embedding API、Chroma/Pinecode。索引是 50–600KB 的纯 JSON 文件。
+1. **`docs/loop-docs/project-overview.md`** — 完整项目概览，每模块一个章节，包含"为什么这样设计"
+2. **`.semantic-rag.json`** — 轻量 RAG 索引，用于快速问答（旧版功能的保留）
 
-**集成方式：**
-- `repo-decompose` Phase 2 空闲期调用 → 写入共享上下文 `supplements.semanticRAG`
-- `mvp-approach` Step 1 用它收束方向
-- 独立使用 → 索引写入 `.semantic-rag.json`
+**零外部依赖。** 不需要向量数据库、embedding API。
 
 ---
 
-## PRECONDITIONS — 执行前必须检查
+## 核心原则
 
-**本 skill 有两种运行模式，根据上下文自动选择：**
+**旧版:** ≤25 字摘要 + ≤20 文件 + ≤80 行输出 = 敷衍。
+**新版:** 每个模块详细分析 + 全部文件覆盖 + 设计决策解释 = 技术文档。
+
+**输出目标:** 一个新人接手这个项目，读完 `project-overview.md` 就能理解项目全貌、架构设计、各模块职责和代码约定。
+
+---
+
+## 输出: `docs/loop-docs/project-overview.md`
+
+这是主输出——给 Loop Agent 和开发者阅读的完整项目文档：
+
+```markdown
+# [项目名] 项目技术文档
+
+> 自动生成于 semantic-rag 分析 | 分析时间: ISO8601 | 分析层级: 🔬 L1 精确
+
+---
+
+## 项目身份
+
+| 属性 | 值 |
+|---|---|
+| 仓库 | owner/repo |
+| 一句话定位 | 面向个人投资者的 A 股智能分析系统 |
+| 主语言 | Python (75.7%) |
+| 辅助语言 | TypeScript (18%), CSS (5%), Shell (1.3%) |
+| 运行时 | Python 3.11+ |
+| 框架 | FastAPI + litellm |
+| 入口 | main.py (CLI), server.py (Web API), webui.py (Gradio) |
+| 数据库 | SQLite (SQLAlchemy ORM) |
+| 测试框架 | pytest (200+ 测试文件) |
+| 分析层级 | 🔬 L1 精确分析 (tree-sitter AST) |
+
+## 架构模式
+
+**分层架构** (自上而下):
 
 ```
-检查: .repo-decompose-context.json 是否存在？
-
-  YES → PIPELINE 模式:
-    - 读取 meta 中的 repo 路径、语言、框架
-    - Phase 1 跳过（meta 已有语言信息）
-    - 输出写入 supplements.semanticRAG 字段
-    - 不需要询问用户任何问题
-    
-  NO → STANDALONE 模式:
-    - 需要用户提供代码路径或 GitHub URL
-    - 输出写入 .semantic-rag.json
-    - 从 Phase 1 完整开始
+入口层    main.py / server.py / webui.py      ← 三种启动方式
+  ↓
+编排层    src/core/pipeline.py                ← 分析流水线总控
+  ↓
+分析层    src/analyzer.py + src/agent/        ← LLM 调用 + 多 Agent 决策
+  ↓
+服务层    src/services/ (38个)                ← 业务逻辑
+  ↓
+数据层    src/data_provider/ + src/repositories/ ← 数据获取 + 持久化
+  ↓
+推送层    src/notification_sender/ (14通道)    ← 多渠道推送
 ```
 
-**决不允许的行为：**
-- ❌ 在 PIPELINE 模式下重新检测语言/框架（信任 meta）
-- ❌ 在 PIPELINE 模式下输出到独立文件（必须写入共享上下文）
-- ❌ 跳过 Phase 2-4
+**核心数据流**: `CLI/Web 触发 → pipeline.run() → 数据获取 → LLM 分析 → 结果格式化 → 多渠道推送`
+
+**设计决策**:
+- 为什么用分层架构而非微服务: 个人投资者场景，单体部署足够。分层保证了模块边界清晰但避免了分布式复杂度。
+- 为什么 litellm 统一 LLM 后端: 支持 Gemini/OpenAI/DeepSeek 多模型切换，通过配置文件即可更换，不需要改代码。
+- 为什么 SQLite 而非 PostgreSQL: 个人用户数据量小（≤10万条），SQLite 零运维成本。SQLAlchemy ORM 保证了将来可无缝切换。
+
+---
+
+## 模块详解
+
+### `src/core/` — 核心引擎
+
+**职责**: 分析流水线的总控和调度——拿到股票列表 → 逐个拉数据 → 调 LLM 分析 → 推送结果。
+**规模**: 11 个文件, ~3500 行
+
+| 文件 | 行数 | 职责 | 关键设计 |
+|---|---|---|---|
+| `pipeline.py` | 450 | 主流水线 `StockAnalysisPipeline` | 使用 generator 模式逐个 yield 结果，支持断点续跑和进度回调 |
+| `scheduler.py` | 320 | 定时任务调度 | 基于 `schedule` 库，不支持 cron 表达式——选择了简单性而非灵活性 |
+| `market_review.py` | 480 | 大盘复盘分析 | 独立于个股分析——先跑大盘再跑个股，大盘结论注入个股 prompt |
+| `trading_calendar.py` | 180 | A 股交易日历 | 使用 `exchange-calendars` 库，兼容上交所/深交所节假日 |
+| `config_manager.py` | 350 | 配置分层管理 | 三层优先级: env > config.py > defaults。热加载通过 `@property` 实现 |
+
+**对外接口**: `run_pipeline(config)`, `run_market_review()`, `get_trading_days()`
+
+**依赖方向**: 依赖 `src/llm/`, `src/data_provider/`, `src/notification/`；被 `main.py`, `server.py` 依赖
+
+**修改风险**: `pipeline.py:run()` 是主入口——签名变更影响所有启动路径。修改前需通过 `tests/test_pipeline*.py`。
+
+### `src/analyzer.py` — LLM 分析层
+
+**职责**: 封装 LLM 调用，把技术面+消息面数据组装成 prompt → 调 LLM → 解析 JSON 响应 → `AnalysisResult`。
+**规模**: 2598 行（含辅助函数 1507 行在 `analyzer_helpers.py`）
+
+**核心类**: `GeminiAnalyzer` (2280 行)
+- `__init__()` — 初始化 litellm 客户端，注册 fallback 模型链
+- `analyze()` — 主分析方法: 获取数据 → 构建 prompt → 调 LLM → 解析 → 完整性检查 → 兜底填充
+- `_format_prompt()` — 450 行的 prompt 模板——包含技术面/消息面/市场阶段/决策指令
+- `_parse_response()` — JSON 解析 + 修复 + 校验的三层防御
+- `_call_litellm_impl()` — 多模型 fallback: 主模型 → fallback1 → fallback2 → 报错
+
+**设计决策**:
+- 为什么 `analyze()` 方法 270 行: 因为每一步都有错误处理和重试——不是"写得长"而是"防御深"。
+- 为什么 litellm 自带 fallback 还要自己封装一层: litellm Router 的 fallback 不支持 per-model 的 `max_tokens` 差异化配置。
+- 为什么 prompt 不使用外部模板文件: 模板内嵌在代码中——prompt 变更 = 代码变更 = 有 git 历史可追溯。
+
+**辅助函数** (在 `analyzer_helpers.py`):
+- `check_content_integrity()` — 检查 LLM 输出完整性（必填字段、数值范围）
+- `apply_placeholder_fill()` — 对缺失的非关键字段填入占位值
+- `stabilize_decision_with_structure()` — 用筹码结构数据修正 LLM 情绪化判断
+- `normalize_chip_structure_availability()` — 处理数据源不提供筹码数据的降级
+
+### `src/services/` — 业务服务层
+
+**职责**: 38 个服务模块，每个负责一个独立业务能力。
+**规模**: 38 个文件, ~12000 行
+
+| 关键服务 | 职责 | 说明 |
+|---|---|---|
+| `analysis_service.py` | 分析请求调度 | 异步队列 + 并发控制 (Semaphore) |
+| `alert_service.py` | 告警规则引擎 | 支持价格/均线/成交量/技术指标多条件组合 |
+| `portfolio_service.py` | 持仓管理 | 成本计算、收益统计、仓位建议 |
+| `decision_signal_service.py` | 决策信号提取 | 从 LLM 输出中结构化提取买卖信号 |
+| `history_service.py` | 历史分析查询 | 支持按日期/股票/信号类型检索历史结果 |
+| `report_renderer.py` | Jinja2 模板渲染 | 分离报告格式和数据——新增报告类型只需加模板 |
+| `intelligence_service.py` | 舆情聚合 | 多数据源 (Tavily/SerpAPI) 并行搜索 + 去重 |
+| `stock_service.py` | 股票信息查询 | 名称→代码解析、板块归属、基本面概况 |
+
+### `src/data_provider/` — 数据获取层
+
+**职责**: 13 个数据源适配器，按优先级 fallback。
+**规模**: 14 个文件, ~4500 行
+
+| 适配器 | 优先级 | 数据覆盖 | 备注 |
+|---|---|---|---|
+| efinance | P0 | A 股实时行情 | 东方财富接口，速度快但偶尔限流 |
+| akshare | P1 | A 股全量数据 | 最全面的免费数据源，但稳定性不如商业 API |
+| tushare | P2 | A 股专业数据 | 需要 token，数据质量高 |
+| yfinance | P4 | 美股/港股 | 雅虎财经，海外市场主力 |
+| longbridge | P5 | 美股/港股 | 长桥 OpenAPI，OAuth 认证 |
+| baostock | P3 | A 股历史数据 | 适合回测场景 |
+
+**设计决策**:
+- 为什么 13 个数据源: 免费数据源没有 SLA——多源 fallback 是生产环境必须的。优先级按稳定性而非覆盖面排序。
+- 为什么用 Adapter 模式而非统一接口: 各数据源的字段名、单位、精度都不同——强行统一会丢失信息。Adapter 保留源数据，上层再归一化。
+
+### `src/notification_sender/` — 推送层
+
+**职责**: 14 个推送通道的独立实现。
+**规模**: 14 个文件，每个 80-200 行
+
+**架构契约**: 每个 sender 是独立模块——新增通道只需加一个文件，不影响现有通道。
+
+| 通道 | 适用场景 |
+|---|---|
+| 企业微信 | 中国大陆主流，支持 Markdown + 图片 |
+| 飞书 | 支持 Stream 流式推送 |
+| Telegram | 海外用户，支持 HTML/Markdown |
+| Discord | 社区场景，Webhook |
+| 邮件 (SMTP) | 日报推送，支持分组 |
+| Pushover/Pushplus/ServerChan/Gotify/Ntfy/Slack... | 小众但完整的覆盖 |
+
+### `src/llm/` — LLM 调用封装
+
+**职责**: litellm 统一后端 + 用量追踪 + 错误恢复。
+**规模**: 8 个文件, ~2000 行
+
+**设计决策**:
+- `litellm_backend.py` 封装了 litellm completion + stream 两种调用方式
+- `generation_backend.py` 定义了抽象接口——如果要换掉 litellm，只需实现这个接口
+- `usage.py` 追踪每次调用的 token 消耗，支持按模型/日期/用户维度统计
+- `provider_cache.py` 实现 prompt caching hint——对重复的系统 prompt 部分节省 50% token
+
+### `src/agent/` — 多 Agent 策略系统
+
+**职责**: 6 个专业 Agent 并行分析 + 结果聚合。
+**规模**: 18 个文件, ~5000 行
+
+| Agent | 职责 | 输入 | 输出 |
+|---|---|---|---|
+| `decision_agent` | 综合决策 | 所有 Agent 输出 | 最终买卖建议 |
+| `intel_agent` | 舆情分析 | 新闻/公告/研报 | 情绪评分 + 风险警报 |
+| `portfolio_agent` | 持仓建议 | 当前持仓 + 分析结果 | 仓位调整建议 |
+| `risk_agent` | 风险评估 | 波动率/VaR/最大回撤 | 风险等级 + 止损建议 |
+| `technical_agent` | 技术分析 | K 线/均线/量能 | 趋势判断 + 形态识别 |
+
+### `src/notification.py` — 通知调度
+
+**职责**: 14 通道的统一调度入口（报告生成已拆到 `notification_reports.py`）。
+**规模**: 1024 行（拆分后）
+
+**设计决策**: 报告生成通过 Mixin 模式继承——`NotificationService(ReportGenerationMixin, WechatSender, ...)`。这样 14 个 sender 保持独立，报告格式变更不影响推送通道。
+
+### `src/config.py` — 配置管理
+
+**职责**: 全局配置中心。
+**规模**: 3091 行（⚠️ 质量诊断已标记为过大模块）
+
+**设计决策**: 
+- 为什么 3000 行: 每个配置项有 docstring + 类型注解 + 默认值 + 环境变量映射 + 校验逻辑。是"文档化配置"而非"臃肿"。
+- 三层优先级: 环境变量覆盖 → 配置文件 → 代码默认值。通过 `@property` 延迟解析实现热加载。
+- 改进建议: 按域拆分为 config/models.py + config/env.py + config/defaults.py。
+
+---
+
+## 技术栈总览
+
+| 层级 | 技术选型 | 为什么选它 |
+|---|---|---|
+| LLM 调用 | litellm | 统一 30+ LLM 提供商接口，支持 fallback |
+| Web 框架 | FastAPI | 异步支持 + 自动 OpenAPI 文档 |
+| 前端 | React + Vite | HMR 开发体验 + TypeScript |
+| 桌面端 | Electron | 跨平台 + Web 技术栈复用 |
+| ORM | SQLAlchemy | Python 生态最成熟的 ORM |
+| 数据分析 | pandas + numpy | A 股数据天然是表格数据 |
+| 模板引擎 | Jinja2 | 报告渲染——分离格式和数据 |
+| Bot 框架 | discord.py + lark-oapi + dingtalk-stream | 每个平台的原生 SDK |
+
+## 代码约定
+
+**命名**: snake_case 全项目统一（变量/函数/文件）
+**类型注解**: 所有公共函数有完整类型注解
+**错误处理**: try/except + 自定义异常类，在 controller 层统一 catch
+**测试**: pytest, 测试文件与源文件同级 `_test.py` 后缀
+**注释**: docstring 覆盖所有公共模块/类/函数，内部逻辑用行注释
+**提交**: conventional commits (feat/fix/docs/refactor/test/chore)
+
+## 已知技术债
+
+| 问题 | 位置 | 严重度 | 状态 |
+|---|---|---|---|
+| analyzer.py God class | src/analyzer.py | HIGH | 辅助函数已拆分，核心类待拆分 |
+| config.py 过大 | src/config.py | MEDIUM | 待按域拆分 |
+| 14 个 sender 无集成测试 | src/notification_sender/ | LOW | 每个至少需 1 个 mock 测试 |
+| requirements.txt 无 lock 文件 | requirements.txt | MEDIUM | 已创建 requirements.lock |
+| main.py 混合 CLI+初始化+调度 | main.py | MEDIUM | CLI 解析待抽取 |
+
+---
+
+## RAG 索引
+
+零依赖轻量 RAG 索引已生成至 `.semantic-rag.json`。
+Chunk 数: [N] | 索引大小: [M] KB
+可通过关键词检索快速定位代码位置——"认证逻辑在哪" → 直接返回文件:行号。
+```
+
+---
 
 ## 跨语言策略：三层降级深度
 
-**诚实面对不同语言的理解不对称。**
+| 层级 | 涵盖语言 | 分析粒度 | 可靠性 |
+|---|---|---|---|
+| **L1** | TS, JS, Python, Go, Rust, Java | 函数/类/方法级，读源码写分析 | 高 |
+| **L2** | C, C++, C#, Kotlin, Swift, PHP, Ruby | 文件级，基于导出符号 + 注释 | 中 |
+| **L3** | 其他所有语言 | 目录级，README + 结构 | 有限 |
 
-| 层级 | 涵盖语言 | 工具 | 分析粒度 | 可靠性 |
-|---|---|---|---|---|
-| **L1** | TS, JS, Python, Go, Rust, Java | `get_symbols` (tree-sitter) | 函数/类/方法 | 高 |
-| **L2** | C, C++, C#, Kotlin, Swift, PHP, Ruby | `search_content` + 语言约定正则 | 文件 | 中 |
-| **L3** | 其他所有语言 | `read_file` + 注释/文档 | 目录 | 有限 |
-
-**降级决策（Phase 1 自动执行）：**
-- 检测到主要语言是 L1 → 函数级 chunk + 语义摘要
-- L2 → 文件级 chunk，依赖导出符号 + 注释推断
-- L3 → 目录级，只分析 README + 目录结构 + 关键文件内容
-
-**输出中诚实标注：** `🔬 L1 精确` / `📄 L2 文件级` / `📁 L3 目录级`
+输出中诚实标注: `🔬 L1 精确` / `📄 L2 文件级` / `📁 L3 目录级`
 
 ---
 
-## 轻量 RAG 算法
+## README 降权规则（防营销文本污染）
 
-### 摄入：AST 边界分块
-
-```
-分块规则:
-  L1: 每个函数/类/方法 = 1 chunk
-  L2: 每个源文件 = 1 chunk
-  L3: 每个目录 = 1 chunk
-
-Chunk 结构:
-{
-  "id": "src/auth/login.ts:handleLogin",
-  "type": "function",
-  "name": "handleLogin",
-  "module": "src/auth",
-  "summary": "验证用户凭证并返回 JWT token",
-  "keywords": ["auth", "login", "jwt", "token"],
-  "source": "src/auth/login.ts:12-45",
-  "langLevel": "L1"
-}
-```
-
-**摘要规则：**
-- 综合函数名 + 参数类型 + 返回值 + 注释 + 调用上下文
-- ≤ 25 字，用户指定语言
-- 2–5 个关键词
-
-**索引大小：**
-
-| 仓库 | 文件数 | Chunk 数 | JSON 大小 |
-|---|---|---|---|
-| S | <100 | ~200 | ~50 KB |
-| M | 100–500 | ~800 | ~150 KB |
-| L | 500–2000 | ~3000 | ~400 KB |
-| XL | >2000 | ~5000 | ~600 KB |
-
-### 检索：两阶段
-
-```
-用户: "认证逻辑在哪里？"
-
-Pass 1 — 关键词命中:
-  分词 → 匹配 name/summary/keywords → 800→12 候选
-
-Pass 2 — Agent 语义排序:
-  给 Agent 12 个候选的 {id, summary, keywords}
-  Agent 对比用户问题排序 → Top 5
-
-输出:
-  🔍 "认证逻辑":
-  1. src/auth/login.ts:handleLogin — 验证凭证返回 JWT
-  2. src/auth/middleware.ts:authMiddleware — 拦截请求校验 token
-  3. src/auth/session.ts:createSession — 创建会话写入 Redis
-  4. src/auth/oauth.ts:oauthCallback — 处理 OAuth 回调
-  5. src/middleware/cors.ts:validateOrigin — 校验请求来源
-
-  追问 "展开第2个" → read_file src/auth/middleware.ts
-```
-
-**为什么不用 embedding：** 摘要是 Agent 自己写的——Agent 读自己写的摘要做排序不需要"翻译层"。
-
----
-
-## 工作流
-
-### Phase 1: 结构识别
-
-**不询问用户，不依赖配置。** 自动检测：
-
-| 识别项 | 方法 |
-|---|---|
-| 语言 | 文件扩展名分布 → 确定 L1/L2/L3 |
-| 运行时 | `package.json` / `go.mod` / `Cargo.toml` |
-| 框架 | 依赖列表匹配 (Next.js, Django, Gin, Actix...) |
-| 入口 | `main` 字段 / `bin` 字段 / 约定入口 |
-| 目录约定 | `src/` `lib/` `cmd/` `pkg/` `app/` |
-| 测试框架 | jest/vitest/pytest/go test 检测 |
-| 数据库 | 依赖名匹配 (pg, mysql, prisma, gorm...) |
-
-**出口 — 项目身份卡：**
-```
-🆔 项目身份
-仓库: owner/repo
-语言: TypeScript (87%) + CSS (13%)
-运行时: Node.js 20+
-框架: Next.js 14 (App Router)
-入口: src/app/layout.tsx, src/app/api/
-数据库: PostgreSQL + Prisma
-🔬 L1 精确分析
-```
-
-### Phase 2: 语义解析
-
-**只分析关键文件。** 总量控制 ≤ 20 个。
-
-| 优先级 | 文件类型 | 数量 | 原因 |
-|---|---|---|---|
-| P0 | README/CONTRIBUTING | ≤3 | 项目自述 |
-| P0 | 主入口文件 | ≤2 | 启动路径起点 |
-| P1 | 顶级配置 | ≤3 | 依赖和部署信息 |
-| P1 | 核心业务目录入口 | ≤5 | 模块入口 |
-| P2 | 路由/API 定义 | ≤5 | 对外接口 |
-| P3 | 核心类型定义 | ≤3 | 数据模型 |
-
-### README 降权规则（防营销文本污染）
-
-**README 是"意图声明"，不是"事实源"。** 很多项目的 README 宣称支持高级能力，但源码并未实现。必须三重交叉验证：
-
-```
 事实层级（高→低）:
-  L0 — 构建文件 (Makefile / CMakeLists / Cargo.toml / package.json scripts)
-        → 确认真实模块列表（被编译/链接的才是真实存在的）
-  L1 — 源码入口 (main / index / 导出点)
-        → 确认架构边界（实际暴露了什么）
-  L2 — README / 文档
-        → 仅用于识别项目意图，不可作为模块存在性的单一证据
+- L0 — 构建文件 → 确认真实模块列表
+- L1 — 源码入口 → 确认架构边界
+- L2 — README/文档 → 仅用于意图识别，不可作为模块存在性的单一证据
 
-降权规则:
-  README 声称的模块名 → 必须在构建文件中找到编译目标 → 才能在语义卡中列出
-  README 声称的能力   → 必须在源码入口中找到导出 → 才能写入 RAG 摘要
-  不同时满足 → 标注 "⚠️ README 声称但未在构建/源码中确认"
-```
+**降权规则:** README 声称的模块 → 必须在构建目标中找到 → 才能在文档中列出。否则标注 `⚠️ README 声称但未确认`。
 
-**示例：** README 说"支持高级语义分析和自动重构"，但 Makefile 只编译 `foundation`, `extraction`, `pipeline`, `store`, `mcp` 五个模块。语义卡中只列这五个，并标注 `⚠️ README 声称的"自动重构"未在构建目标中找到`。
+---
 
-**每个关键文件回答三问：**
-1. 做什么？（一句话，≤25 字）
-2. 什么角色？（入口/编排/数据/工具/胶水）
-3. 上下游？（谁调它，它调谁）
+## 文档规模约束
 
-**出口 — 模块语义卡：**
-```json
-{
-  "modules": [
-    {
-      "path": "src/auth",
-      "responsibility": "用户认证和会话管理",
-      "role": "核心业务",
-      "upstream": ["src/middleware"],
-      "downstream": ["src/db", "src/cache"]
-    }
-  ],
-  "architecturePattern": "分层 (middleware → handler → service → db)",
-  "dataFlow": "请求 → 认证 → 路由 → 业务 → ORM → PostgreSQL"
-}
-```
+**下限（低于此值 = 敷衍，不可接受）:**
 
-### Phase 3: 多语言输出
+| 文档 | 下限 | 检查方式 |
+|---|---|---|
+| `project-overview.md` | 每个模块 ≥ 3 个小节（职责/规模、设计决策、依赖方向） | 模块数 × 3 ≤ 实际小节数 |
+| 项目身份卡 | 全部 8 个字段非空 | 逐字段检查 |
+| 技术栈总览 | ≥ 5 行（每个关键依赖一行 + 选型理由） | 行数 ≥ 5 |
+| 代码约定 | ≥ 4 条（命名/类型/错误/测试） | 条目数 ≥ 4 |
+| 已知技术债 | 从 quality-audit/diagnose 交叉引用 | 至少引用 quality-audit 的 HIGH 项 |
 
-**结构固定：**
+**上限（超过此值 = 膨胀，需拆分）:**
 
-```
-📖 [owner/repo] 概览
+| 文档 | 上限 | 超过时操作 |
+|---|---|---|
+| 单个模块章节 | 60 行 | 拆分到 `project-overview-{module}.md`，主文档保留 ≤ 20 行摘要 + 引用 |
+| `project-overview.md` 整体 | 500 行 | 最多保留前 8 个模块的完整章节，其余只写摘要 + 引用子文档 |
+| `.semantic-rag.json` | 1 MB | chunk 数达到上限时，优先保留入口链上的模块 |
 
-[一段话 — 是什么、解决什么、怎么解决。≤5 句。]
-
-🏗️ 架构: [识别到的模式]
-  src/auth/      — 用户认证和会话管理
-  src/db/        — 数据库访问 (Prisma)
-  src/api/       — REST API 路由
-  src/ui/        — React 组件和页面
-
-📊 数据: [核心模型], PostgreSQL + Redis
-
-🔑 入口: src/app/layout.tsx, src/app/api/
-
-🔬 L1 精确分析
-```
-
-**约束：** S 仓库 ≤30 行，M ≤50 行，L ≤80 行。不输出源代码片段。
-
-### Phase 4: RAG 索引构建
-
-执行摄入算法。独立使用时输出 `.semantic-rag.json`；被调用时写入共享上下文。
-
-**自检：** 抽 5 个 chunk，每个摘要 ≤25 字且非程序员也能理解。
+**规则：** 大模块（行数 > 1000 或文件数 > 5）自动触发子文档拆分。小模块（行数 < 200 且文件数 ≤ 2）合并为一个小节。
 
 ---
 
@@ -254,17 +315,21 @@ Pass 2 — Agent 语义排序:
 
 | # | Agent 借口 | 反驳 |
 |---|---|---|
-| 1 | "L2 语言用 search_content 凑合就行" | 降级≠不做。L2 仍需读关键文件写摘要，只是粒度从函数降到文件 |
-| 2 | "RAG 索引太大，先不生成" | 索引是分析的自然产物——摘要写完索引就有了，不是额外工作 |
-| 3 | "L3 语言我完全不懂，跳过" | L3 降级到目录+README。README 总是人类语言，没有语言障碍 |
-| 4 | "摘要太长，复杂逻辑说不清" | ≤25 字是硬约束。说不清 → 标注 `⚠️ 职责复杂` 而不写长摘要 |
-| 5 | "关键词不准，用 embedding 替代" | embedding 引入外部依赖。关键词不准 → 加更多同义词进 keywords 数组 |
-| 6 | "先不做 RAG，等用户追问再说" | 追问时再做 = 每次追问都要重新扫全仓库。索引 = 一次扫描，N 次查询 |
+| 1 | "≤25 字摘要够用了" | 25 字说不清一个模块为什么这样设计。技术文档的价值在"为什么"。 |
+| 2 | "只看 20 个关键文件就行" | 决定"关键"的标准是入口点依赖链——不在链上的文件可能是死代码，也可能是被遗漏的核心。全量覆盖。 |
+| 3 | "L3 语言我完全不懂，跳过" | L3 降级到目录+README。README 总是人类语言。 |
+| 4 | "技术文档写太详细了，future loop 用不上" | Fix 阶段需要知道"改了这段代码会影响哪些模块"——这些信息全在模块详解里。 |
+| 5 | "架构图用文字描述就行" | 用 ASCII 树状图 + 表格——比图片更 grep 友好，Agent 和人都能直接读。 |
+| 6 | "README 降权太严格了，README 通常是对的" | 很多开源项目的 README 是愿望清单而非事实。构建文件不说谎。 |
 
 ## 验证清单
 
+- [ ] `docs/loop-docs/project-overview.md` 已生成
 - [ ] 项目身份卡全字段填充，语言层级已标注
-- [ ] 每个关键文件 ≤25 字摘要
-- [ ] chunk 数在 [源文件数, 源文件数×5] 区间
-- [ ] 至少能回答 3 个追问且 Top 1 包含正确答案
-- [ ] 索引文件 < 1MB
+- [ ] 每个顶级模块都有详细分析章节（职责/规模/设计决策/依赖方向）
+- [ ] 每个模块的设计决策都是"为什么"而非"做了什么"
+- [ ] 架构图用 ASCII 树状图，表格化依赖关系
+- [ ] README 声明的能力全部通过构建文件交叉验证
+- [ ] 代码约定章节从 `style-profile` 交叉引用
+- [ ] 已知技术债章节从 `quality-audit` 交叉引用
+- [ ] `.semantic-rag.json` 已生成（供快速问答检索）

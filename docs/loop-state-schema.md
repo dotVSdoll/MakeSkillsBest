@@ -13,11 +13,49 @@
     "language": "TypeScript",
     "framework": "Next.js 14",
     "scale": "M",
-    "loopVersion": "1.0",
+    "loopVersion": "2.0",
     "createdAt": "ISO8601",
     "updatedAt": "ISO8601",
-    "currentPhase": "observe",
-    "loopCount": 0
+    "currentPhase": "detect",
+    "loopCount": 0,
+
+    "adapterConfig": {
+      "agent": "claude-code | codex | cursor | unknown",
+      "skillDir": "~/.claude/skills/",
+      "subtaskModel": "run_skill+explore | Task tool | subagent | inline-only",
+      "hasTimeout": false,
+      "cliAllowed": true,
+      "networkAllowed": "allowlist | ask | blocked"
+    },
+
+    "environmentTier": "🟢 full | 🟡 partial | 🟠 minimal | 🔴 sandbox-only",
+
+    "deliveryMode": "DEPRECATED — v2.0 统一为任务驱动流程，此字段仅在 v1.x 状态文件中存在。v2.0 不再写入。"
+  },
+
+  "detect": {
+    "status": "pending | running | done | failed",
+    "agent": "claude-code",
+    "configRead": true,
+    "capabilities": {
+      "subagent": true,
+      "cliAllowed": true,
+      "networkAllowed": "ask",
+      "hasTimeout": false
+    }
+  },
+
+  "envReady": {
+    "status": "pending | running | done | failed",
+    "tier": "🟢 full",
+    "checks": {
+      "venv": true,
+      "deps": true,
+      "env": false,
+      "test": true
+    },
+    "autoPrepared": ["venv", "deps"],
+    "manualNeeded": [".env 需要填入 API key"]
   },
 
   "goal": {
@@ -106,6 +144,7 @@
   "learn": {
     "status": "pending | running | done",
     "roundSummary": "成功实现 JWT 登录核心路径。authMiddleware 因循环依赖需下轮重构。",
+    "roundMaxSeverity": "HIGH",
     "lessons": [
       { "type": "success", "detail": "JWT 签发/验证用 HS256 即可满足 MVP" },
       { "type": "blocker", "detail": "authMiddleware 导入 core/engine 导致循环依赖，下轮需解耦" }
@@ -120,6 +159,7 @@
   "decide": {
     "decision": "continue | stop | rollback | replan",
     "reason": "核心登录路径已跑通。存在一个循环依赖问题，但已标记为下轮修复。继续下一轮。",
+    "matchedCondition": "[1]",
     "nextPhase": "observe",
     "nextGoal": "解耦 authMiddleware → 实现 refresh token"
   }
@@ -129,14 +169,17 @@
 ## 字段生存周期
 
 ```
-observe   → Observe → 写入 (semantic-rag, knowledge-graph, repo-decompose, mvp-approach)
-plan      → Plan    → 写入 (delivery-plan, task-graph)
-bound     → Bound   → 写入 (implementation-map)
-act       → Act     → 增量更新 (每完成一个 task 追加)
-verify    → Verify  → 写入 (verification-loop 结果)
-learn     → Learn   → 写入 (engineering-loop 总结)
-decide    → Decide  → 写入 (engineering-loop 判定)
-meta      → 常驻   → 每阶段更新 currentPhase / loopCount / updatedAt
+detect    → Detect    → 写入 (adapterConfig, capabilities)
+envReady  → EnvReady  → 写入 (environmentTier, checks, autoPrepared)
+observe   → Observe   → 写入 (semantic-rag, knowledge-graph, repo-decompose, mvp-approach)
+plan      → Plan      → 写入 (delivery-plan, task-graph)
+bound     → Bound     → 写入 (implementation-map)
+fix       → Fix       → 增量更新 (每完成一个 task 追加)
+verify    → Verify    → 写入 (verification-loop 结果)
+selfReview→ SelfReview→ 写入 (审查结果)
+learn     → Learn     → 写入 (engineering-loop 总结 + roundMaxSeverity)
+decide    → Decide    → 写入 (engineering-loop 判定)
+meta      → 常驻     → 每阶段更新 currentPhase / loopCount / updatedAt
 ```
 
 ## 状态文件位置
