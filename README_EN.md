@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/skills-13-orange" alt="skills">
   <img src="https://img.shields.io/badge/phases-12-purple" alt="phases">
   <br>
-  <a href="https://discord.com/channels/1519320574562795601/1519320574562795604"><img src="https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://discord.gg/ESaTn66P4"><img src="https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white" alt="Discord"></a>
   <a href="https://x.com/DVBbdipl"><img src="https://img.shields.io/badge/X-%23000000.svg?logo=X&logoColor=white" alt="X"></a>
 </p>
 
