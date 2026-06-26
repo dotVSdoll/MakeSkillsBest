@@ -178,20 +178,17 @@ This project is evolving from "a single code optimization loop" into a **multi-l
 | Document Processing | 🔄 Planning | Batch analysis, classification, summarization, formatting |
 | Multimedia Review | 📋 Evaluating | Image/audio/video understanding and quality checks |
 
-### Platform Adaptation (New Direction)
+### Platform Adaptation
 
-The same Loop needs different wiring on different agent tools. This layer is being built to bridge that gap:
+Each agent tool has its own plugin mechanism. Loops are wired directly into the tool's native configuration — no abstraction layer needed:
 
-| Platform | Integration Method | Status |
-|----------|-------------------|--------|
-| **Claude Code** | `CLAUDE.md` + hooks + `/loop` command | 🔄 In progress |
+| Platform | How to Wire | Status |
+|----------|------------|--------|
+| **Claude Code** | `.claude-plugin/` + `hooks/` + `.claude/commands/` | 🔄 In progress |
 | **Cursor** | `.cursor/rules/` | 🔄 In progress |
-| **Codex CLI** | Plugin registration + prompt templates | 📋 Planned |
+| **Codex CLI** | `.opencode/` plugin registration | 📋 Planned |
 | **Windsurf** | `.windsurf/rules/` | 📋 Planned |
-| **Gemini CLI** | `gemini-extension.json` | 📋 Planned |
-| **Tools without Loop** | MCP server injection | 📋 Evaluating |
-
-> The core question: **For tools that don't natively support loops, can we inject loop capability through MCP servers or hooks?**
+| **Gemini CLI** | `.gemini/` extension config | 📋 Planned |
 
 ---
 
@@ -256,17 +253,20 @@ MakeSkillsBest/
 │   └── ...
 ├── loops/               # 🔄 Planned: reusable Loop pattern definitions
 │   └── code-optimization/
-├── platforms/           # 🔄 Planned: per-tool platform wiring
-│   ├── claude-code/
-│   │   ├── CLAUDE.md
-│   │   └── hooks/
-│   ├── cursor/
-│   │   └── .cursor/rules/
-│   └── codex/
-├── mcp/                 # 🔄 Planned: MCP server injection layer
-├── commands/            # 🔄 Planned: CLI command registration
+├── commands/            # 🔄 Planned: CLI command registration (.toml / .md)
+├── hooks/               # 🔄 Planned: Session life-cycle hooks
+├── scripts/             # 🔄 Planned: helper scripts
 ├── docs/                # Documentation
-└── images/              # Assets
+├── images/              # Assets
+├── .claude-plugin/      # 🔄 Planned: Claude Code plugin
+├── .claude/commands/    # 🔄 Planned: Claude Code slash commands
+├── .cursor/rules/       # 🔄 Planned: Cursor rules
+├── .opencode/           # 🔄 Planned: OpenCode plugin
+├── .gemini/             # 🔄 Planned: Gemini CLI extension config
+├── .windsurf/rules/     # 🔄 Planned: Windsurf rules
+├── AGENTS.md            # Agent guidelines (tool-agnostic)
+├── CLAUDE.md            # Claude Code project instructions
+└── plugin.json          # Plugin metadata
 ```
 
 ---
