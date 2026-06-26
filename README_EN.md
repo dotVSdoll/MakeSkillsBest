@@ -1,8 +1,6 @@
 # MakeSkillsBest
 
-> **Code Optimization Engineering Loop — not for building new features, but for making existing code better.**
-
-[中文](README.md)
+> **Loop Engineering — Automate complex workflows with AI agents. Less manual oversight, more reliable outcomes.**
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-2.0-blue" alt="version">
@@ -14,158 +12,112 @@
   <a href="https://x.com/DVBbdipl"><img src="https://img.shields.io/badge/X-%23000000.svg?logo=X&logoColor=white" alt="X"></a>
 </p>
 
+[中文](README.md)
+
 ---
 
-### TL;DR
+### Why Loop Engineering?
 
-MakeSkillsBest is an **engineering loop for AI Coding Agents**. It understands your repo, diagnoses security/quality issues, generates a fix plan, locks modifiable files, then fixes in small steps with self-review. Good for onboarding large repos, managing tech debt, fixing security, reducing complexity. Not for building new features from scratch.
+AI agents can write code and answer questions. But ask one to **autonomously complete a multi-step workflow**, and things start to break down:
+
+- The agent fixes a bug, then "incidentally" rewrites three unrelated modules
+- You ask it to review code quality — next session, it's forgotten everything
+- A security vulnerability gets patched, but nobody checked whether the fix introduced new issues
+- You want ongoing tech debt monitoring, but every conversation starts from scratch
+
+The problem isn't model capability. It's that **complex workflows lack structure**. Agents excel at single-turn output, but cross-step **state management, boundary control, and exit conditions** — the engineering of reliable automation — doesn't emerge from a raw prompt.
+
+Loop Engineering fills this gap: **define complex workflows as repeatable loops, then let the agent execute, verify, and decide when to stop on its own.**
+
+One input. The loop handles the rest.
 
 ---
 
 ## Table of Contents
 
-- [What It Is](#what-it-is)
-- [Three Ways to Use](#three-ways-to-use)
+- [Which Problem Are You Facing](#which-problem-are-you-facing)
+- [What MakeSkillsBest Is](#what-makeskillsbest-is)
+- [Current Status](#current-status)
+- [Under Construction](#under-construction)
 - [Quick Start](#quick-start)
-- [Installation](#installation)
-- [Safety Contract](#safety-contract)
-- [Core Workflow](#core-workflow)
-- [Output Directory](#output-directory)
-- [Full Case Study](#full-case-study)
-- [Output Examples](#output-examples)
-- [Skill Ecosystem](#skill-ecosystem)
-- [How It Compares](#how-it-compares)
-- [What It's Good For](#what-its-good-for)
-- [Key Capabilities](#key-capabilities)
+- [Platform Support](#platform-support)
+- [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## What It Is
+## Which Problem Are You Facing
 
-**MakeSkillsBest is a 12-phase, 13-skill code optimization lifecycle.** The first 2 phases (Detect + EnvReady) handle tool detection and environment prep; the remaining 10 phases are executed by `engineering-loop` as a complete **Diagnose → Plan → Bound → Fix → Verify → SelfReview** closed loop.
+### Problem A: Code changes break things
 
-It doesn't build new features — it finds existing problems in your code and fixes them safely, traceably, and with style consistency.
+```
+You ask the agent to "fix this security vulnerability". It fixes the vulnerability, but also:
+- Renames nearby functions to match its own style preference
+- Deletes a variable that looks "unused" — but another module imports it
+- Skips tests, and you only discover the breakage in production
+```
 
-Common AI coding agent mistakes:
+**How a Loop helps:** `Bound → Fix → Verify → SelfReview` locks down the modification boundary. Any overstepping or missed validation is caught at the SelfReview phase and rolled back.
 
-- Fixes one bug, introduces three new ones
-- Breaks the project's existing code style
-- "Incidentally" refactors modules it shouldn't touch
-- Changes code without knowing whether the fix actually works
+### Problem B: Every session starts from zero
 
-**Cross-Agent Adaptive:** On first run, automatically detects your AI Coding tool, reads local configuration, and adapts sub-task dispatch and CLI permissions. Detection covers: host tool type, parallel sub-task support, shell command and file write permissions, git workspace status. No manual configuration needed.
+```
+You run a weekly code quality review. But every new conversation:
+- The agent doesn't know your repository
+- Past findings are invisible
+- The same false positives get flagged over and over
+```
 
-**Prerequisites:**
+**How a Loop helps:** Loop state is persisted to `.loop-log/`. On the next run, past findings, resolved issues, and known false positives are loaded automatically.
 
-- Any AI Coding Agent that accepts `/skill` or similar instructions
-- A code repository (local path or GitHub URL)
-- Recommended: `git` + the project's language runtime (the Loop auto-detects and prepares)
+### Problem C: The workflow exceeds a single turn
+
+```
+You want the agent to do something multi-phase:
+"Analyze the repo → diagnose issues → generate a fix plan → apply changes → verify → redo if needed"
+But no single prompt handles a chain this long. What you get back is plausible but unreliable.
+```
+
+**How a Loop helps:** A 12-phase lifecycle where each phase's output is the next phase's input. The Decide phase determines whether to continue, stop, or re-plan. No manual intervention required.
 
 ---
 
-## Three Ways to Use
+## What MakeSkillsBest Is
 
-No mode switching — just express intent in natural language:
+MakeSkillsBest is a **Library of Loop Patterns** — reusable workflow definitions you can drop into any AI coding agent.
 
-### 1. Just Understand the Project
+Each Loop defines:
 
-```
-/optimize-loop "Analyze this repo, generate architecture docs and risk report, don't modify code"
-```
+| Element | What It Means |
+|---------|---------------|
+| **Entry** | What triggers the loop? |
+| **Body** | What phases does it cycle through? What does each phase produce? |
+| **Exit** | When does it stop? (task complete / diminishing returns / consecutive failures / user interrupt) |
+| **State** | How does persistent state carry across iterations? |
+| **Safety** | How do we prevent overstepping, enable rollback, and request human confirmation? |
 
-The Loop runs through all analysis phases, finds no tasks at Plan → auto-ends, leaving zero code changes.
-
-### 2. Get a Fix Plan First
-
-```
-/optimize-loop "Analyze this repo, generate a fix plan and modification boundaries, don't execute yet"
-```
-
-Stops after the Bound phase — you get a complete fix plan + allowlist/red zones before confirming.
-
-### 3. Let It Fix in Small Steps
+### Bare Agent vs. Loop
 
 ```
-/optimize-loop "Reduce core module complexity and verify after each batch of fixes"
-```
+Bare agent:
+  You give a prompt → it responds once → done
+  └ Complex task? Guide it step by step, manually
 
-Full 12-phase run — each batch verified after execution, problems trigger immediate rollback.
-
-> If no fixable issues are found during diagnosis, the Loop auto-ends after Plan. You're never forced into code changes.
-
----
-
-## Quick Start
-
-```bash
-# Simplest usage — analyze and optimize the current repo
-/optimize-loop "Analyze and optimize this repository"
-
-# Specific goals
-/optimize-loop "Fix security vulnerabilities and unify error handling style"
-/optimize-loop "Reduce core module complexity"
-/optimize-loop "Clean up dead code and add missing tests"
-```
-
-**What happens:**
-
-```
-1. Detects your Agent tool → loads the appropriate adapter
-2. Detects/prepares the runtime environment (venv, dependencies, .env)
-3. Scans code style, security vulnerabilities, quality issues
-4. Generates full technical documentation (knowledge graph, architecture, file index)
-5. Creates a fix plan → locks modification boundaries → executes in small steps
-6. Verifies fixes → self-reviews → captures lessons learned
-7. All output goes to docs/loop-docs/ and .loop-log/
+Loop:
+  You give a goal → it iterates, verifies, and adjusts autonomously
+  └ Unless it gets stuck, you don't hear from it
 ```
 
 ---
 
-## Installation
+## Current Status
 
-**Recommended — Claude Code Marketplace:**
+### Code Optimization Loop (Engineering Loop)
 
-```bash
-/plugin marketplace add dotVSdoll/MakeSkillsBest
-```
+**12 phases, 13 skills, covering analysis → diagnosis → fix → verification.**
 
-**Universal — npx skills (Codex / Cursor / Gemini CLI / 50+ tools):**
-
-```bash
-npx skills add dotVSdoll/MakeSkillsBest -g
-```
-
-**Manual (for any SKILL.md-compatible Agent):**
-
-```bash
-git clone https://github.com/dotVSdoll/MakeSkillsBest.git
-# Copy or symlink skills/*/SKILL.md to your Agent's skill directory
-```
-
-> Detailed instructions in [docs/setup-guide.md](docs/setup-guide.md)
-
----
-
-## Safety Contract
-
-MakeSkillsBest operates on **least privilege**. You can trust it won't overstep:
-
-| Promise | How It's Enforced |
-|---|---|
-| Won't modify code before locking boundaries | Fixes only execute after `implementation-map` generates an allowlist |
-| Won't touch red-zone files | `implementation-map` auto-detects forbidden modules from architecture contracts and dependency analysis |
-| Won't fake execution results | When environment prep fails, it honestly degrades to static analysis — never pretends a CLI tool ran |
-| All changes are traceable | Every step logged to `.loop-log/`, every commit is an atomic task |
-| Style consistency checked before changes | `style-profile` ensures fixes match existing naming, error handling, and comment conventions |
-| Self-review after every change | 10-point diff audit: scope creep, new deps, API breakage, contract violations… |
-| Consecutive failures trigger stop | 2 verify failures → replan; 2 self-review failures → stop |
-| Diminishing returns auto-stop | 2 consecutive rounds with max severity ≤ LOW → stops to save tokens |
-
----
-
-## Core Workflow
+For: onboarding large repos, managing tech debt, fixing security issues, reducing code complexity.
 
 ```
 Detect → EnvReady → Observe → Understand → Diagnose → Plan → Bound
@@ -174,226 +126,148 @@ Detect → EnvReady → Observe → Understand → Diagnose → Plan → Bound
            Decide=continue loops back to Fix or Observe
 ```
 
-The first 2 phases are **one-time gates** (not part of the loop). The remaining 10 form the `engineering-loop` optimization cycle.
-
 | Phase | What It Does | Deliverable |
-|---|---|---|
+|-------|-------------|-------------|
 | 🔌 **Detect** | Detects AI tool → reads config → selects adapter | Capability matrix |
-| ⚙️ **EnvReady** | Tiered env check 🟢🟡🟠🔴 → auto-prep venv/deps | Runnable environment |
-| 🔍 **Observe** | Code style profiling: naming, error handling, organization, testing | Style constraints |
+| ⚙️ **EnvReady** | Tiered env check → auto-prep venv/deps | Runnable environment |
+| 🔍 **Observe** | Code style profiling | Style constraints |
 | 🧠 **Understand** | Semantic analysis + knowledge graph + architecture decomposition | Full technical docs |
-| 🩺 **Diagnose** | 4-dim security scan + 6-dim quality audit (parallel) | Ranked issue list |
-| 📋 **Plan** | Delivery plan + task DAG + critical path | Execution plan |
-| 🔒 **Bound** | Allowlist + red zones + architecture contracts + blast radius | Safety boundaries |
-| 🔧 **Fix** | Style-constrained, small-step fixes | Code changes |
-| ✅ **Verify** | Template-based verification (CLI/Library/Skill/Security) | Verification report |
-| 🔍 **SelfReview** | 10-point diff check: scope/deps/API/contract/snapshots | Self-review report |
-| 📝 **Learn** | Capture lessons + generate next-round recommendations | Experience log |
-| 🔁 **Decide** | 8 stop conditions → continue/stop/replan | Decision |
+| 🩺 **Diagnose** | Security scan + quality audit (parallel) | Ranked issue list |
+| 📋 **Plan** | Delivery plan + task DAG | Execution plan |
+| 🔒 **Bound** | Allowlist + red zones | Safety boundaries |
+| 🔧 **Fix** | Style-constrained small-step fixes | Code changes |
+| ✅ **Verify** | Template-based fix verification | Verification report |
+| 🔍 **SelfReview** | 10-point diff audit | Self-review report |
+| 📝 **Learn** | Capture lessons + generate recommendations | Experience log |
+| 🔁 **Decide** | Stop condition evaluation | continue/stop/replan |
+
+Real-world case: On a 200+ source file Python stock analysis platform, completed security fixes + code splitting. `analyzer.py` 4068→2598 lines, `notification.py` 2609→1024 lines. Zero regression bugs introduced. See the [full case study](#).
+
+### Skill Ecosystem
+
+13 skills in four groups. **Each skill can be used independently:**
+
+| Group | Skill | When to Use |
+|-------|-------|-------------|
+| **Analysis** | `style-profile` | Learning a new project's code style |
+| | `semantic-rag` | Understanding architecture and module responsibilities |
+| | `knowledge-graph` | Tracing call chains, data flow, dependencies |
+| | `repo-decompose` | Decomposing requirements, generating architecture docs |
+| | `mvp-approach` | Validating which direction is most feasible |
+| **Diagnosis** | `security-audit` | Checking dependencies, injection risks, secrets |
+| | `quality-audit` | Checking duplication, complexity, dead code, test gaps |
+| **Execution** | `delivery-plan` | Generating phased fix plans by priority |
+| | `task-graph` | Building task dependency DAGs |
+| | `implementation-map` | Generating modification allowlists + red zones |
+| | `verification-loop` | Template-based fix verification |
+| **Infrastructure** | `log-journal` | Writing structured logs per phase |
+| | `engineering-loop` | Orchestrator — 2 gates + 10-phase optimization cycle |
 
 ---
 
-## Output Directory
+## Under Construction
 
-After a run, you'll have reusable assets — not a disposable chat transcript:
+This project is evolving from "a single code optimization loop" into a **multi-loop pattern library + platform adaptation layer**.
 
-```
-docs/loop-docs/
-├── knowledge-graph.md         ← Four-layer graph (symbols→calls→data flow→dependencies)
-├── symbol-index.md            ← Per-file symbol index
-├── call-graph.md              ← Tree-structured call graph from entry points
-├── module-dependencies.md     ← Module dependency matrix + impact analysis
-├── project-overview.md        ← Full project technical doc (per-module deep dive)
-├── architecture.md            ← Architecture doc + data flow + decision points
-└── file-index.md              ← Complete file index (role/deps/modification notes)
+### Loop Patterns (Expansion)
 
-.loop-log/
-└── {YYYY-MM-DD}_{repo}-{goal}/
-    ├── 00-detect.md           ← Agent detection + adapter selection
-    ├── 01-env-ready.md        ← Environment readiness + auto-prep
-    ├── 02-observe.md          ← Style profiling
-    ├── 03-understand.md       ← Semantic understanding + direction validation
-    ├── 04-diagnose.md         ← Security audit + quality diagnosis
-    ├── 05-plan.md             ← Fix plan + task DAG
-    ├── 06-bound.md            ← Allowlist + red zones
-    ├── 07-fix.md              ← Per-task fix details
-    ├── 08-verify.md           ← Verification results
-    ├── 09-self-review.md      ← Self-review findings
-    ├── 10-learn.md            ← Lessons learned
-    └── INDEX.md               ← Quick index (searchable by keyword)
-```
+| Loop | Status | Description |
+|------|--------|-------------|
+| Code Optimization | ✅ Released | 12-phase code analysis → diagnose → fix → verify |
+| Info Gathering | 🔄 Planning | Automated search, aggregation, dedup, structured output |
+| Document Processing | 🔄 Planning | Batch analysis, classification, summarization, formatting |
+| Multimedia Review | 📋 Evaluating | Image/audio/video understanding and quality checks |
+
+### Platform Adaptation (New Direction)
+
+The same Loop needs different wiring on different agent tools. This layer is being built to bridge that gap:
+
+| Platform | Integration Method | Status |
+|----------|-------------------|--------|
+| **Claude Code** | `CLAUDE.md` + hooks + `/loop` command | 🔄 In progress |
+| **Cursor** | `.cursor/rules/` | 🔄 In progress |
+| **Codex CLI** | Plugin registration + prompt templates | 📋 Planned |
+| **Windsurf** | `.windsurf/rules/` | 📋 Planned |
+| **Gemini CLI** | `gemini-extension.json` | 📋 Planned |
+| **Tools without Loop** | MCP server injection | 📋 Evaluating |
+
+> The core question: **For tools that don't natively support loops, can we inject loop capability through MCP servers or hooks?**
 
 ---
 
-## Full Case Study
+## Quick Start
 
-A real optimization run on [daily_stock_analysis](https://github.com/ZhuLinsen/daily_stock_analysis) (Python stock analysis platform, ~200 source files).
+```bash
+# Claude Code — Code Optimization Loop (ready now)
+/optimize-loop "Analyze and optimize this repository"
 
-> Not simulated — from an actual static/execution hybrid optimization test. All numbers correspond to real diffs and compilation output.
+# Specific goals
+/optimize-loop "Fix security vulnerabilities and unify error handling style"
+/optimize-loop "Reduce core module complexity"
+/optimize-loop "Clean up dead code and add missing tests"
 
-### Input
-
-```
-/optimize-loop "Analyze and optimize D:\daily_stock_analysis"
-```
-
-### Phase-by-Phase Highlights
-
-| Phase | Finding | Decision |
-|---|---|---|
-| **Detect** | Claude Code, Task tool parallelism supported | Security + quality audits run in parallel |
-| **EnvReady** | Python 3.11, venv exists, deps installed | 🟢 Full — all CLI tools available |
-| **Observe** | snake_case naming, try/except error handling, pytest | Style constraints locked |
-| **Understand** | 7 tech docs generated, 12 modules detailed, evidence matrix | Direction: code organization + security hardening |
-| **Diagnose** | 4 security (0C/0H/3M/1L) + 6 quality (0C/2H/3M/1L) | No CRITICALs, HIGH items enter fix plan |
-| **Plan** | 5 tasks, 2 parallel batches | Security first (Batch 1), then code splitting (Batch 2) |
-| **Bound** | 4 allowed files, pipeline/agent/sender red-zoned | Boundaries locked |
-| **Fix** | 5/5 tasks completed | analyzer.py 4068→2598 lines, notification.py 2609→1024 lines |
-| **Verify** | All files compile, backward compatible | Passed |
-| **SelfReview** | 2 issues found (Mixin not inherited, regex bug) | Fixed and re-verified |
-
-### End Result
-
-| Metric | Before | After |
-|---|---|---|
-| `analyzer.py` lines | 4068 | 2598 (-36%) |
-| `notification.py` lines | 2609 | 1024 (-61%) |
-| Security findings | 4 (0C) | All fixed |
-| Technical docs generated | 0 | 7 Markdown documents |
-| Regression bugs introduced | — | 0 |
-
----
-
-## Output Examples
-
-Excerpt from `docs/loop-docs/project-overview.md` (generated during Understand phase):
-
-```markdown
-## src/analyzer.py — LLM Analysis Layer
-
-**Role**: Wraps LLM calls — technicals+news→prompt→call LLM→parse JSON→AnalysisResult.
-**Size**: 2598 lines (1507 lines of helpers in analyzer_helpers.py)
-
-### Core Class: GeminiAnalyzer (2280 lines)
-
-| Method | Line | Purpose |
-|---|---|---|
-| analyze() | 2866 | Main analysis flow — fetch data→build prompt→call LLM→parse→integrity check |
-| _format_prompt() | 3140 | 450-line prompt template — covers all analysis dimensions |
-| _parse_response() | 3778 | Three-layer parsing defense — JSON→json_repair→text regex |
-
-### Design Decisions
-
-- **Why analyze() is 270 lines**: Every step has error handling and retries — "long" isn't "bloated", it's "deeply defensive"
-- **Why wrap litellm fallback**: Router doesn't support per-model max_tokens differentiation
-- **Why prompt is inline**: Prompt changes = code changes = full git history
+# Analysis only, no changes
+/optimize-loop "Analyze this repo, generate architecture docs and risk report, don't modify code"
 ```
 
-Excerpt from `docs/loop-docs/call-graph.md`:
+**Prerequisites:**
 
-```markdown
-## Call Tree: main() → Full Chain
+- Any AI Coding Agent that accepts `/skill` or similar instructions
+- A target code repository (local path)
+- Recommended: `git` + the project's language runtime (the Loop auto-detects and prepares)
 
-main() [main.py:42]
-├── Config.load() [config.py:18]              ← L45: Load config at startup
-│   ├── parseEnvFile() [config.py:30]
-│   └── validateSchema() [config.py:55]
-├── Database.connect() [db/index.ts:10]       ← L48: Connection pool init
-└── Server.listen() [external]                ← L60: Start HTTP listener
+**Installation:**
+
+```bash
+# Claude Code Marketplace
+/plugin marketplace add dotVSdoll/MakeSkillsBest
+
+# Universal — npx skills (Codex / Cursor / Gemini CLI / 50+ tools)
+npx skills add dotVSdoll/MakeSkillsBest -g
+
+# Manual (for any SKILL.md-compatible Agent)
+git clone https://github.com/dotVSdoll/MakeSkillsBest.git
+# Copy or symlink skills/*/SKILL.md to your Agent's skill directory
 ```
 
 ---
 
-## Skill Ecosystem
+## Platform Support
 
-13 skills organized into four usage groups. **All skills can be invoked independently — no need to run the full Loop.**
-
-### When to Use the Full Loop vs. a Single Skill?
-
-| Scenario | Recommendation |
-|---|---|
-| Onboarding a large unfamiliar repo | Full `/optimize-loop` |
-| Just want to understand architecture | Run `semantic-rag` + `knowledge-graph` standalone |
-| Just want a security check | Run `security-audit` standalone |
-| About to edit code, worried about boundaries | Run `implementation-map` standalone |
-| Made changes, want to prove nothing broke | Run `verification-loop` standalone |
-| Just want project documentation | Run `repo-decompose` standalone |
-
-### Analysis — Understanding Your Project
-
-| Skill | When to Use |
-|---|---|
-| `style-profile` | Joining a new project — learn its code style first |
-| `semantic-rag` | Understanding overall architecture and module responsibilities |
-| `knowledge-graph` | Tracing call chains, data flows, module dependencies |
-| `repo-decompose` | Decomposing requirements, generating architecture docs |
-| `mvp-approach` | Validating which optimization direction is most feasible |
-
-### Diagnosis — Finding Problems
-
-| Skill | When to Use |
-|---|---|
-| `security-audit` | Checking CVE, auth flaws, injection risks, secret leaks |
-| `quality-audit` | Checking duplication, complexity, dead code, test gaps |
-
-### Execution — Planning & Fixing
-
-| Skill | What It Does |
-|---|---|
-| `delivery-plan` | Generates phased fix plan by security/quality priority |
-| `task-graph` | Builds task dependency DAG + critical path |
-| `implementation-map` | Generates modification allowlist + red zones + blast radius |
-| `verification-loop` | Template-based fix verification (CLI/Library/Skill/Security) |
-
-### Infrastructure
-
-| Skill | What It Does |
-|---|---|
-| `log-journal` | Writes structured logs per phase |
-| `engineering-loop` | Orchestrator — 2 gates + 10-phase optimization cycle |
+| Platform | Native Loop | How to Integrate | Status |
+|----------|-------------|-----------------|--------|
+| Claude Code | ✅ `/loop` command | hooks + CLAUDE.md | Ready |
+| Codex CLI | ✅ Sub-agent dispatch | Plugin registration | Planned |
+| Cursor | ⚠️ Self-chaining agent mode | `.cursor/rules/` | In progress |
+| Windsurf | ⚠️ Cascade mode | `.windsurf/rules/` | Planned |
+| Gemini CLI | ⚠️ Extensions | `gemini-extension.json` | Planned |
+| Other tools | ❌ No loop | MCP Server injection | Evaluating |
 
 ---
 
-## How It Compares
+## Project Structure
 
-| Approach | Common Failure Mode | How MakeSkillsBest Prevents It |
-|---|---|---|
-| Direct Agent fix | Scope creep, Agent rewrites adjacent code | `implementation-map` allowlist + red zones + SelfReview |
-| Lint / SonarQube | Reports rules but doesn't know how to fix | `delivery-plan` + `task-graph` generate executable fix plan |
-| Dependabot / Renovate | Upgrades deps without reachability check | CVE × reachability × exposure × upgradeRisk ranking |
-| AI Code Review | Post-hoc — problems already committed | Bound before changes, Verify + SelfReview after |
-| **MakeSkillsBest** | **Full analyze→diagnose→plan→bound→fix→verify→self-review→learn closed loop** | |
-
----
-
-## What It's Good For
-
-**Good for:**
-
-- Medium to large existing codebases
-- Projects needing security audit, quality governance, dead code cleanup, complexity reduction
-- Multi-maintainer projects where AI style consistency and boundary safety matter
-- Engineering workflows: plan first, fix in small steps, verify after each batch
-
-**Not good for:**
-
-- Generating a new app or feature from scratch
-- One-shot massive rewrites (the Loop philosophy is small-step iteration)
-- Environments without git or where dependency installation is forbidden
-- Scenarios where you want the Agent to make large-scale changes without confirmation
-
----
-
-## Key Capabilities
-
-- **Cross-Agent Adaptive** — Auto-detects host tool (Claude Code / Codex / Cursor / Gemini CLI / Windsurf), reads local config, adapts dispatch model and permissions
-- **Auto Environment Prep** — Creates venv → installs deps → copies .env; honestly degrades to static analysis when blocked
-- **Style-Adaptive Fixes** — Modified code is indistinguishable from human-written; matches naming, error handling, and comment conventions
-- **Security-First Prioritization** — CVEs sorted by reachability × exposure × upgradeRisk; won't break your project for an unreachable dev dependency
-- **Dead Code Protection** — 5-point deletion checklist: dynamic import? public API? config reference? plugin convention? test reference? All NO → safe to delete
-- **Self-Review** — 10-point diff-level audit: allowed files / new deps / API changes / scope creep / contract violations / snapshots / error patterns / linter warnings / over-implementation
-- **Diminishing Returns Stop** — 2 consecutive rounds with max severity ≤ LOW → auto-stop, no token waste
-- **Permanent Tech Docs** — Knowledge graph, architecture diagrams, file index, call chains — readable Markdown documentation that outlives the Loop
+```
+MakeSkillsBest/
+├── skills/              # Skill definitions (single SKILL.md each)
+│   ├── engineering-loop/
+│   ├── security-audit/
+│   ├── quality-audit/
+│   └── ...
+├── loops/               # 🔄 Planned: reusable Loop pattern definitions
+│   └── code-optimization/
+├── platforms/           # 🔄 Planned: per-tool platform wiring
+│   ├── claude-code/
+│   │   ├── CLAUDE.md
+│   │   └── hooks/
+│   ├── cursor/
+│   │   └── .cursor/rules/
+│   └── codex/
+├── mcp/                 # 🔄 Planned: MCP server injection layer
+├── commands/            # 🔄 Planned: CLI command registration
+├── docs/                # Documentation
+└── images/              # Assets
+```
 
 ---
 
@@ -403,7 +277,7 @@ Issues and PRs welcome.
 
 - New skills: create a directory under `skills/` with a `SKILL.md`
 - Improve existing skills: edit the corresponding `SKILL.md`
-- Documentation improvements: all files under `docs/`
+- New Loop patterns: define Entry / Body / Exit / State / Safety under `loops/`
 
 ---
 
