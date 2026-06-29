@@ -19,7 +19,7 @@ from typing import Optional
 try:
     from PIL import Image
 except ImportError:
-    print("❌ 需要 Pillow 库，请执行: pip install Pillow")
+    print("[FAIL] 需要 Pillow 库，请执行: pip install Pillow")
     sys.exit(1)
 
 # ─── 常量 ───
@@ -162,10 +162,10 @@ def cmd_cut(args):
     """cut 命令：切割单个精灵表"""
     path = args.path
     if not os.path.exists(path):
-        print(f"❌ 文件不存在: {path}")
+        print(f"[FAIL] 文件不存在: {path}")
         return 1
 
-    print(f"📂 加载精灵表: {path}")
+    print(f"[DIR] 加载精灵表: {path}")
     try:
         img = load_sprite_sheet(path)
         w, h = img.size
@@ -174,7 +174,7 @@ def cmd_cut(args):
         print(f"  ├ 尺寸: {w}×{h}")
         print(f"  ├ 网格: {cols}×{rows} (每块 {TILE_SIZE}×{TILE_SIZE})")
     except Exception as e:
-        print(f"❌ {e}")
+        print(f"[FAIL] {e}")
         return 1
 
     # 确定输出目录
@@ -182,7 +182,7 @@ def cmd_cut(args):
     print(f"  └ 输出: {out_dir}")
 
     # 切割
-    print(f"\n🔪 切割中...")
+    print(f"\n 切割中...")
     tiles = cut_sprite_sheet(img, out_dir)
 
     has_content = [t for t in tiles if t["has_content"]]
@@ -195,7 +195,7 @@ def cmd_cut(args):
     ref_name = "_grid_reference.png"
     ref_path = os.path.join(out_dir, ref_name)
     generate_reference_grid(img, ref_path)
-    print(f"\n📊 参考网格图: {ref_path}")
+    print(f"\n[CHART] 参考网格图: {ref_path}")
 
     return 0
 
@@ -204,7 +204,7 @@ def cmd_batch(args):
     """batch 命令：批量处理目录下所有 PNG"""
     directory = args.directory
     if not os.path.isdir(directory):
-        print(f"❌ 目录不存在: {directory}")
+        print(f"[FAIL] 目录不存在: {directory}")
         return 1
 
     files = sorted([
@@ -212,10 +212,10 @@ def cmd_batch(args):
         if f.lower().endswith(".png") and not f.startswith("grid_")
     ])
     if not files:
-        print(f"❌ 目录中没有 PNG 文件: {directory}")
+        print(f"[FAIL] 目录中没有 PNG 文件: {directory}")
         return 1
 
-    print(f"📂 目录: {directory}")
+    print(f"[DIR] 目录: {directory}")
     print(f"  └ 找到 {len(files)} 个文件")
 
     for i, fname in enumerate(files, 1):
@@ -234,7 +234,7 @@ def cmd_clean(args):
     """clean 命令：清理精灵目录"""
     target_dir = args.directory or str(SPRITES_DIR)
     if not os.path.isdir(target_dir):
-        print(f"❌ 目录不存在: {target_dir}")
+        print(f"[FAIL] 目录不存在: {target_dir}")
         return 1
 
     # 需要保留的文件模式
