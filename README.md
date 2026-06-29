@@ -147,6 +147,31 @@ little-gardener/
 
 ---
 
+## 场景图概览
+
+> 以下提示词用于生成 Little Gardener 可视化界面的概念图/氛围参考。把这段文字贴入 Gemini，生成像素风花园场景的预览图。
+
+```
+Generate a pixel art top-down garden scene concept, 1280x720 pixels.
+Style: 16-bit pixel art (Stardew Valley / Harvest Moon aesthetic).
+Warm, cozy color palette (soft greens, earthy browns, warm yellows).
+
+The scene shows:
+- A green grassy garden with a dirt path running horizontally across the middle
+- Several plant beds arranged in a grid (4 columns), each with a small sunflower-like plant in various health states (lush green, yellowing, dead brown)
+- A cute pixel art gardener character in a straw hat and green apron, standing in the garden holding small pruning shears
+- A small wooden bench and fence posts along the path
+- A sky gradient background (light blue to soft warm tone)
+- A semi-transparent settings panel on the right side with rule configuration text
+
+The overall mood is calm, cozy, and charming — like a peaceful afternoon in a cottage garden.
+Make it look like a 16-bit game screenshot. Each element should be clearly visible.
+```
+
+> 将生成的图片放入 `docs/scene-concept.png` 或参考使用。美术资源最终会替换掉代码中的形状渲染 fallback。
+
+---
+
 ## License
 
 MIT © [dotVSdoll](https://github.com/dotVSdoll)
