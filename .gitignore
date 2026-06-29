@@ -2,6 +2,9 @@
 node_modules/
 __pycache__/
 *.pyc
+*.pyo
+.venv/
+venv/
 
 # IDE
 .vscode/
@@ -25,3 +28,7 @@ build/
 # Gardener runtime state (generated at runtime, not committed)
 .gardener-state.json
 .gardener-backup/
+
+# Python
+*.egg-info/
+.pytest_cache/
