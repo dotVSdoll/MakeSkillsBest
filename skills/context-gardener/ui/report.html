@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌱 Context Gardener — 花园报告</title>
+<style>
+  /* ─── Reset & Base ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f0f7f0;
+    color: #1a2e1a;
+    line-height: 1.6;
+    padding: 20px;
+  }
+
+  /* ─── Header / Sky ─── */
+  .header {
+    background: linear-gradient(135deg, #87ceeb 0%, #b8e6b8 100%);
+    border-radius: 16px 16px 0 0;
+    padding: 32px 40px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: "☀️";
+    position: absolute;
+    top: 12px;
+    right: 40px;
+    font-size: 48px;
+    opacity: 0.6;
+  }
+  .header-title { font-size: 28px; font-weight: 700; color: #1a3a1a; }
+  .header-subtitle { font-size: 14px; color: #3a5a3a; margin-top: 4px; }
+  .header-meta { display: flex; gap: 24px; margin-top: 12px; font-size: 13px; color: #2d4a2d; }
+
+  /* ─── Ground ─── */
+  .ground {
+    background: linear-gradient(180deg, #c8e6c9 0%, #a5d6a7 40%, #81c784 100%);
+    border-radius: 0 0 16px 16px;
+    padding: 24px 40px 32px;
+    margin-bottom: 24px;
+  }
+
+  /* ─── Health Score ─── */
+  .health-bar-container { margin-bottom: 24px; }
+  .health-bar-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
+  .health-bar-label span:first-child { font-weight: 600; }
+  .health-bar-track {
+    height: 20px;
+    background: #e0e0e0;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  .health-bar-fill {
+    height: 100%;
+    border-radius: 12px;
+    transition: width 0.8s ease;
+    width: 0%;
+  }
+  .health-bar-fill.level-critical { background: linear-gradient(90deg, #e57373, #ef5350); }
+  .health-bar-fill.level-warning { background: linear-gradient(90deg, #ffb74d, #ff9800); }
+  .health-bar-fill.level-good { background: linear-gradient(90deg, #81c784, #66bb6a); }
+  .health-bar-fill.level-healthy { background: linear-gradient(90deg, #66bb6a, #43a047); }
+  .health-score-number {
+    text-align: center;
+    font-size: 48px;
+    font-weight: 800;
+    margin-top: -6px;
+  }
+  .health-score-number.critical { color: #e53935; }
+  .health-score-number.warning { color: #f57c00; }
+  .health-score-number.good { color: #388e3c; }
+  .health-score-number.healthy { color: #2e7d32; }
+  .health-rating {
+    text-align: center;
+    font-size: 18px;
+    margin-top: -4px;
+  }
+
+  /* ─── Plants Grid ─── */
+  .plants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .plant-card {
+    background: rgba(255,255,255,0.85);
+    border-radius: 12px;
+    padding: 16px;
+    border: 2px solid transparent;
+    transition: transform 0.15s, box-shadow 0.15s;
+    cursor: default;
+  }
+  .plant-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .plant-card.healthy { border-color: #66bb6a; }
+  .plant-card.good { border-color: #ffb74d; }
+  .plant-card.critical { border-color: #ef5350; }
+  .plant-emoji { font-size: 32px; line-height: 1; }
+  .plant-name {
+    font-weight: 600;
+    font-size: 14px;
+    font-family: "Fira Code", "JetBrains Mono", "Cascadia Code", monospace;
+    word-break: break-all;
+    margin: 8px 0 4px;
+  }
+  .plant-score { font-size: 24px; font-weight: 700; }
+  .plant-score.healthy { color: #2e7d32; }
+  .plant-score.good { color: #e65100; }
+  .plant-score.critical { color: #c62828; }
+  .plant-meta { font-size: 12px; color: #666; margin-top: 4px; }
+  .plant-issues { margin-top: 8px; }
+  .plant-issue {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 2px 2px 0 0;
+  }
+  .plant-issue.P0 { background: #ffebee; color: #c62828; }
+  .plant-issue.P1 { background: #fff3e0; color: #e65100; }
+  .plant-issue.P2 { background: #fff8e1; color: #f9a825; }
+  .plant-issue.P3 { background: #e8f5e9; color: #2e7d32; }
+
+  /* ─── Issues Section ─── */
+  .section { margin-bottom: 24px; }
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .issue-list { display: flex; flex-direction: column; gap: 8px; }
+  .issue-item {
+    background: white;
+    border-radius: 8px;
+    padding: 12px 16px;
+    border-left: 4px solid #ccc;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .issue-item.severity-P0 { border-left-color: #e53935; }
+  .issue-item.severity-P1 { border-left-color: #f57c00; }
+  .issue-item.severity-P2 { border-left-color: #fdd835; }
+  .issue-item.severity-P3 { border-left-color: #81c784; }
+  .issue-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .issue-badge.P0 { background: #ffebee; color: #c62828; }
+  .issue-badge.P1 { background: #fff3e0; color: #e65100; }
+  .issue-badge.P2 { background: #fff8e1; color: #f9a825; }
+  .issue-badge.P3 { background: #e8f5e9; color: #2e7d32; }
+  .issue-body { flex: 1; }
+  .issue-type {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+  }
+  .issue-detail { font-size: 14px; margin-top: 2px; }
+  .issue-file {
+    font-size: 12px;
+    color: #666;
+    font-family: "Fira Code", "JetBrains Mono", "Cascadia Code", monospace;
+    margin-top: 4px;
+  }
+  .issue-suggestion {
+    font-size: 13px;
+    color: #388e3c;
+    margin-top: 4px;
+  }
+
+  /* ─── Comparison (Pre/Post) ─── */
+  .comparison { display: flex; gap: 24px; align-items: center; margin-bottom: 16px; }
+  .comparison-box {
+    flex: 1;
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .comparison-box .label { font-size: 12px; color: #888; }
+  .comparison-box .value { font-size: 36px; font-weight: 700; }
+  .comparison-arrow { font-size: 28px; color: #888; }
+  .improvement { text-align: center; font-size: 14px; color: #388e3c; font-weight: 600; }
+
+  /* ─── Summary Table ─── */
+  .summary-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+  .summary-table th, .summary-table td { padding: 8px 16px; text-align: left; font-size: 13px; }
+  .summary-table th { background: #e8f5e9; font-weight: 600; }
+  .summary-table tr:not(:last-child) td { border-bottom: 1px solid #f0f0f0; }
+
+  /* ─── Footer ─── */
+  .footer { text-align: center; font-size: 12px; color: #999; margin-top: 32px; padding: 16px; }
+
+  /* ─── Print ─── */
+  @media print {
+    body { background: white; padding: 0; }
+    .header { border-radius: 0; }
+    .ground { border-radius: 0; }
+    .plant-card:hover { transform: none; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// ─── Garden Report Renderer ───
+// Data is embedded as GARDENER_DATA. Replace this object with the output from
+// .gardener-state.json after a Gardener run.
+const GARDENER_DATA = {
+  repo: "your-project",
+  timestamp: new Date().toISOString(),
+  duration: "0m 0s",
+  health: {
+    current: 75,
+    previous: null,
+    issuesResolved: null,
+    issuesRemaining: null
+  },
+  files: [
+    {
+      path: "CLAUDE.md",
+      emoji: "🌻",
+      score: 92,
+      lines: 48,
+      ageDays: 3,
+      issues: []
+    },
+    {
+      path: ".claude/memory/arch-decision.md",
+      emoji: "🌿",
+      score: 78,
+      lines: 124,
+      ageDays: 45,
+      issues: [
+        { severity: "P2", type: "stale", detail: "45 天未更新" }
+      ]
+    },
+    {
+      path: ".claude/rules/lint-style.md",
+      emoji: "🥀",
+      score: 45,
+      lines: 210,
+      ageDays: 120,
+      issues: [
+        { severity: "P1", type: "stale", detail: "120 天未更新" },
+        { severity: "P0", type: "contradiction", detail: "与 CLAUDE.md 缩进规则矛盾" }
+      ]
+    }
+  ],
+  issues: [
+    { id: "contra-001", severity: "P0", type: "contradiction", file: "rules/lint-style.md",
+      detail: "要求 'use 2 spaces'，但 CLAUDE.md 要求 'use tabs'",
+      suggestion: "统一缩进风格，建议跟随 project-wide 约定" },
+    { id: "stale-001", severity: "P1", type: "stale", file: "rules/lint-style.md",
+      detail: "文件 120 天未更新（上次修改 2026-03-01）",
+      suggestion: "审查规则是否仍然适用" },
+    { id: "stale-002", severity: "P2", type: "stale", file: "memory/arch-decision.md",
+      detail: "文件 45 天未更新",
+      suggestion: "检查是否有新的架构决策需要记录" },
+    { id: "bloat-001", severity: "P2", type: "bloat", file: "rules/lint-style.md",
+      detail: "210 行，超过 200 行阈值",
+      suggestion: "考虑拆分为多个主题文件" }
+  ],
+  comparison: null,
+  improvements: [],
+  memory: []
+};
+
+function renderApp(data) {
+  const app = document.getElementById('app');
+  if (!data) {
+    app.innerHTML = `<div style="text-align:center;padding:80px 20px;color:#999;">
+      <div style="font-size:64px;">🌱</div>
+      <h2>No Garden Data</h2>
+      <p>Run <code>/gardener</code> first to generate a report.</p>
+    </div>`;
+    return;
+  }
+
+  const health = data.health;
+  const healthClass = health.current >= 90 ? 'healthy' : health.current >= 70 ? 'good' : health.current >= 50 ? 'warning' : 'critical';
+  const healthRating = health.current >= 90 ? '🌻 健康' : health.current >= 70 ? '🌿 良好' : health.current >= 50 ? '🥀 需要关注' : '⚠️ 危急';
+
+  // Group issues by severity
+  const issuesBySeverity = { P0: [], P1: [], P2: [], P3: [] };
+  (data.issues || []).forEach(issue => {
+    if (issuesBySeverity[issue.severity]) issuesBySeverity[issue.severity].push(issue);
+  });
+
+  const plantCards = (data.files || []).map(f => {
+    const cls = f.score >= 80 ? 'healthy' : f.score >= 60 ? 'good' : 'critical';
+    const emoji = f.emoji || (f.score >= 80 ? '🌻' : f.score >= 60 ? '🌿' : '🥀');
+    const issues = (f.issues || []).map(i =>
+      `<span class="plant-issue ${i.severity}">${i.type}</span>`
+    ).join('');
+    return `<div class="plant-card ${cls}">
+      <div class="plant-emoji">${emoji}</div>
+      <div class="plant-name">${f.path}</div>
+      <div class="plant-score ${cls}">${f.score}</div>
+      <div class="plant-meta">${f.lines} 行 · ${f.ageDays} 天前更新</div>
+      ${issues ? `<div class="plant-issues">${issues}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const issueItems = [];
+  ['P0','P1','P2','P3'].forEach(sev => {
+    issuesBySeverity[sev].forEach(issue => {
+      const typeLabels = { stale: '枯萎', contradiction: '矛盾', bloat: '膨胀', redundancy: '冗余', orphan: '枯根' };
+      issueItems.push(`<div class="issue-item severity-${issue.severity}">
+        <span class="issue-badge ${issue.severity}">${issue.severity}</span>
+        <div class="issue-body">
+          <div class="issue-type">${typeLabels[issue.type] || issue.type}</div>
+          <div class="issue-detail">${issue.detail}</div>
+          <div class="issue-file">${issue.file}</div>
+          ${issue.suggestion ? `<div class="issue-suggestion">💡 ${issue.suggestion}</div>` : ''}
+        </div>
+      </div>`);
+    });
+  });
+
+  // Pre/post comparison
+  let comparisonHTML = '';
+  if (data.comparison) {
+    comparisonHTML = `<div class="section">
+      <div class="section-title">📊 前后对比</div>
+      <div class="comparison">
+        <div class="comparison-box">
+          <div class="label">修剪前</div>
+          <div class="value">${data.comparison.pre}</div>
+        </div>
+        <div class="comparison-arrow">→</div>
+        <div class="comparison-box">
+          <div class="label">修剪后</div>
+          <div class="value">${data.comparison.post}</div>
+        </div>
+      </div>
+      <div class="improvement">+${data.comparison.post - data.comparison.pre} 健康分提升</div>
+    </div>`;
+  }
+
+  // Improvements (from learn phase)
+  const improvementsHTML = (data.improvements && data.improvements.length) ? `<div class="section">
+    <div class="section-title">📝 本次经验</div>
+    ${data.improvements.map(imp => `<div style="background:white;border-radius:8px;padding:10px 16px;margin-bottom:6px;font-size:13px;">${imp}</div>`).join('')}
+  </div>` : '';
+
+  app.innerHTML = `
+    <div class="header">
+      <div class="header-title">🌱 Context Gardener — 花园报告</div>
+      <div class="header-subtitle">${data.repo}</div>
+      <div class="header-meta">
+        <span>🕐 ${new Date(data.timestamp).toLocaleString('zh-CN')}</span>
+        <span>⏱ ${data.duration}</span>
+      </div>
+    </div>
+    <div class="ground">
+      <div class="health-bar-container">
+        <div class="health-bar-label">
+          <span>花园健康度</span>
+          <span>${issueItems.length} 个问题</span>
+        </div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill level-${healthClass}" style="width:${health.current}%"></div>
+        </div>
+        <div class="health-score-number ${healthClass}">${health.current}</div>
+        <div class="health-rating">${healthRating}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">🌱 花园植物 (${data.files.length})</div>
+        <div class="plants-grid">${plantCards}</div>
+      </div>
+
+      ${comparisonHTML}
+
+      <div class="section">
+        <div class="section-title">🔍 诊断发现 (${data.issues.length})</div>
+        <div class="issue-list">${issueItems.length ? issueItems.join('') : '<div style="text-align:center;padding:24px;color:#888;">✅ 没有发现问题，花园很健康！</div>'}</div>
+      </div>
+
+      ${improvementsHTML}
+
+      <div class="section">
+        <div class="section-title">📋 文件清单</div>
+        <table class="summary-table">
+          <thead><tr><th>文件</th><th>健康分</th><th>行数</th><th>天数</th><th>问题</th></tr></thead>
+          <tbody>${(data.files || []).map(f =>
+            `<tr><td style="font-family:monospace;font-size:12px;">${f.path}</td>
+            <td style="font-weight:600;color:${f.score>=80?'#2e7d32':f.score>=60?'#e65100':'#c62828'}">${f.score}</td>
+            <td>${f.lines}</td>
+            <td>${f.ageDays}</td>
+            <td>${(f.issues||[]).length}</td></tr>`
+          ).join('')}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="footer">
+      Generated by Context Gardener 🌱 · MakeSkillsBest
+    </div>
+  `;
+}
+
+renderApp(GARDENER_DATA);
+</script>
+</body>
+</html>

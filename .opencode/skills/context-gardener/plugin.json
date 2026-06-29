@@ -1,0 +1,11 @@
+{
+  "name": "context-gardener",
+  "description": "🌱 Context Gardener — Audit and maintain project context files (CLAUDE.md, memory, rules). Built on Loop Engineering.",
+  "skills": ["../../skills/context-gardener/SKILL.md"],
+  "commands": {
+    "gardener": {
+      "description": "Run Context Gardener — inspect, diagnose, and optionally prune context files",
+      "usage": "gardener run [--apply] [--staleDays N] [--maxLines N]"
+    }
+  }
+}

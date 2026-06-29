@@ -22,7 +22,6 @@ build/
 .env
 .env.local
 
-# Skill runtime artifacts (generated at runtime, not committed)
-.repo-decompose-context.json
-.knowledge-graph.json
-.semantic-rag.json
+# Gardener runtime state (generated at runtime, not committed)
+.gardener-state.json
+.gardener-backup/

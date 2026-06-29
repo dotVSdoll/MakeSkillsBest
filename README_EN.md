@@ -1,244 +1,116 @@
 # MakeSkillsBest
 
-> **Loop Engineering — Automate complex workflows with AI agents. Less manual oversight, more reliable outcomes.**
+> **Skills that think in loops. First skill: Context Gardener 🌱**
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-2.0-blue" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
-  <img src="https://img.shields.io/badge/skills-13-orange" alt="skills">
-  <img src="https://img.shields.io/badge/phases-12-purple" alt="phases">
+  <img src="https://img.shields.io/badge/skills-1-orange" alt="skills">
   <br>
-  <a href="https://discord.gg/ESaTn66P4"><img src="https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://x.com/DVBbdipl"><img src="https://img.shields.io/badge/X-%23000000.svg?logo=X&logoColor=white" alt="X"></a>
 </p>
 
 [中文](README.md)
 
 ---
 
-### Why Loop Engineering?
+### This is not just another prompt collection
 
-AI agents can write code and answer questions. But ask one to **autonomously complete a multi-step workflow**, and things start to break down:
+AI agents can write code and answer questions. But ask one to **automatically maintain something that needs ongoing attention**—like your project's instructions, rules, and memory files—and things fall apart:
 
-- The agent fixes a bug, then "incidentally" rewrites three unrelated modules
-- You ask it to review code quality — next session, it's forgotten everything
-- A security vulnerability gets patched, but nobody checked whether the fix introduced new issues
-- You want ongoing tech debt monitoring, but every conversation starts from scratch
+- A CLAUDE.md untouched for three months, full of outdated conventions
+- Three memory files describing the same decision, contradicting each other
+- `.claude/` accumulating more and more instructions—no one dares to delete, no one reads them
+- Every new session, the agent doesn't know your conventions. You explain everything again
 
-The problem isn't model capability. It's that **complex workflows lack structure**. Agents excel at single-turn output, but cross-step **state management, boundary control, and exit conditions** — the engineering of reliable automation — doesn't emerge from a raw prompt.
+The problem isn't model capability. It's that **maintenance work lacks structure**.
 
-Loop Engineering fills this gap: **define complex workflows as repeatable loops, then let the agent execute, verify, and decide when to stop on its own.**
-
-One input. The loop handles the rest.
+Loop Engineering fills this gap: **define maintenance tasks as repeatable loops, then let the agent execute, verify, and decide when to stop on its own.**
 
 ---
 
-## Table of Contents
+## Philosophy
 
-- [Which Problem Are You Facing](#which-problem-are-you-facing)
-- [What MakeSkillsBest Is](#what-makeskillsbest-is)
-- [Current Status](#current-status)
-- [Under Construction](#under-construction)
-- [Quick Start](#quick-start)
-- [Platform Support](#platform-support)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+MakeSkillsBest is a **skills repository**. Each skill embeds [**Loop Engineering**](docs/philosophy.md) as its core philosophy—not a one-shot tool, but a self-looping, self-maintaining agent workflow.
+
+Every skill follows this skeleton:
+
+```
+Entry → Observe → Diagnose → Plan → Act → Verify → Learn → Decide
+                              ↑________________________________↓
+                     Decide=continue loops back to Observe or Act
+```
+
+This structure matters for three kinds of scenarios:
+
+| Scenario | Why Loop Matters |
+|----------|-----------------|
+| **Ongoing maintenance** | Instruction files rot. One-time cleanup isn't enough—regular inspection is needed |
+| **Multi-round iteration** | One pass isn't enough. Fix, verify, find new issues, fix again |
+| **Long-term monitoring** | Left alone, things decay. The loop runs on a schedule; you just read the results |
 
 ---
 
-## Which Problem Are You Facing
+## Featured Skill: Context Gardener 🌱
 
-### Problem A: Code changes break things
+Your project's context files (`CLAUDE.md`, `.claude/memory/*.md`, `.claude/rules/*`) are a garden.
+They rot over time—outdated conventions, contradictory rules, bloated documents no one maintains.
 
-```
-You ask the agent to "fix this security vulnerability". It fixes the vulnerability, but also:
-- Renames nearby functions to match its own style preference
-- Deletes a variable that looks "unused" — but another module imports it
-- Skips tests, and you only discover the breakage in production
-```
+**The Gardener patrols regularly, trims dead branches, pulls weeds, and keeps your "context garden" healthy.**
 
-**How a Loop helps:** `Bound → Fix → Verify → SelfReview` locks down the modification boundary. Any overstepping or missed validation is caught at the SelfReview phase and rolled back.
+```bash
+# Claude Code
+/gardener "check project instruction health"
 
-### Problem B: Every session starts from zero
+# Cursor
+@gardener check project instruction health
 
-```
-You run a weekly code quality review. But every new conversation:
-- The agent doesn't know your repository
-- Past findings are invisible
-- The same false positives get flagged over and over
+# Codex CLI
+gardener run
 ```
 
-**How a Loop helps:** Loop state is persisted to `.loop-log/`. On the next run, past findings, resolved issues, and known false positives are loaded automatically.
+### What It Does
 
-### Problem C: The workflow exceeds a single turn
-
-```
-You want the agent to do something multi-phase:
-"Analyze the repo → diagnose issues → generate a fix plan → apply changes → verify → redo if needed"
-But no single prompt handles a chain this long. What you get back is plausible but unreliable.
-```
-
-**How a Loop helps:** A 12-phase lifecycle where each phase's output is the next phase's input. The Decide phase determines whether to continue, stop, or re-plan. No manual intervention required.
-
----
-
-## What MakeSkillsBest Is
-
-MakeSkillsBest is a **Library of Loop Patterns** — reusable workflow definitions you can drop into any AI coding agent.
-
-Each Loop defines:
-
-| Element | What It Means |
-|---------|---------------|
-| **Entry** | What triggers the loop? |
-| **Body** | What phases does it cycle through? What does each phase produce? |
-| **Exit** | When does it stop? (task complete / diminishing returns / consecutive failures / user interrupt) |
-| **State** | How does persistent state carry across iterations? |
-| **Safety** | How do we prevent overstepping, enable rollback, and request human confirmation? |
-
-### Bare Agent vs. Loop
+Each run is a complete Loop:
 
 ```
-Bare agent:
-  You give a prompt → it responds once → done
-  └ Complex task? Guide it step by step, manually
-
-Loop:
-  You give a goal → it iterates, verifies, and adjusts autonomously
-  └ Unless it gets stuck, you don't hear from it
+🔍 Observe     → Scan all context files: size, last modified, structure
+🩺 Diagnose    → Detect stale files / contradictions / bloat / redundancy
+📋 Plan        → Generate pruning plan (what to delete, merge, flag)
+🔧 Act         → Apply changes (with your confirmation)
+✅ Verify      → Re-check: did issues improve? Any false positives?
+📝 Learn       → Record what was learned, save to memory
+🔁 Decide      → Garden healthy? Stop. Issues remain? Schedule next round
 ```
 
----
+### Visual Report
 
-## Current Status
-
-### Code Optimization Loop (Engineering Loop)
-
-**12 phases, 13 skills, covering analysis → diagnosis → fix → verification.**
-
-For: onboarding large repos, managing tech debt, fixing security issues, reducing code complexity.
+After each run, a "garden" panorama is generated—every file is a plant, health at a glance:
 
 ```
-Detect → EnvReady → Observe → Understand → Diagnose → Plan → Bound
-    → Fix → Verify → SelfReview → Learn → Decide
-     ↑___________________________________________↓
-           Decide=continue loops back to Fix or Observe
+🌻 CLAUDE.md  — Healthy (last updated 3 days ago)
+🌿 memory/    — Good (1 suggestion)
+🥀 rules/     — Needs attention (stale 45 days, contradiction detected)
 ```
 
-| Phase | What It Does | Deliverable |
-|-------|-------------|-------------|
-| 🔌 **Detect** | Detects AI tool → reads config → selects adapter | Capability matrix |
-| ⚙️ **EnvReady** | Tiered env check → auto-prep venv/deps | Runnable environment |
-| 🔍 **Observe** | Code style profiling | Style constraints |
-| 🧠 **Understand** | Semantic analysis + knowledge graph + architecture decomposition | Full technical docs |
-| 🩺 **Diagnose** | Security scan + quality audit (parallel) | Ranked issue list |
-| 📋 **Plan** | Delivery plan + task DAG | Execution plan |
-| 🔒 **Bound** | Allowlist + red zones | Safety boundaries |
-| 🔧 **Fix** | Style-constrained small-step fixes | Code changes |
-| ✅ **Verify** | Template-based fix verification | Verification report |
-| 🔍 **SelfReview** | 10-point diff audit | Self-review report |
-| 📝 **Learn** | Capture lessons + generate recommendations | Experience log |
-| 🔁 **Decide** | Stop condition evaluation | continue/stop/replan |
-
-Real-world case: On a 200+ source file Python stock analysis platform, completed security fixes + code splitting. `analyzer.py` 4068→2598 lines, `notification.py` 2609→1024 lines. Zero regression bugs introduced. See the [full case study](#).
-
-### Skill Ecosystem
-
-13 skills in four groups. **Each skill can be used independently:**
-
-| Group | Skill | When to Use |
-|-------|-------|-------------|
-| **Analysis** | `style-profile` | Learning a new project's code style |
-| | `semantic-rag` | Understanding architecture and module responsibilities |
-| | `knowledge-graph` | Tracing call chains, data flow, dependencies |
-| | `repo-decompose` | Decomposing requirements, generating architecture docs |
-| | `mvp-approach` | Validating which direction is most feasible |
-| **Diagnosis** | `security-audit` | Checking dependencies, injection risks, secrets |
-| | `quality-audit` | Checking duplication, complexity, dead code, test gaps |
-| **Execution** | `delivery-plan` | Generating phased fix plans by priority |
-| | `task-graph` | Building task dependency DAGs |
-| | `implementation-map` | Generating modification allowlists + red zones |
-| | `verification-loop` | Template-based fix verification |
-| **Infrastructure** | `log-journal` | Writing structured logs per phase |
-| | `engineering-loop` | Orchestrator — 2 gates + 10-phase optimization cycle |
-
----
-
-## Under Construction
-
-This project is evolving from "a single code optimization loop" into a **multi-loop pattern library + platform adaptation layer**.
-
-### Loop Patterns (Expansion)
-
-| Loop | Status | Description |
-|------|--------|-------------|
-| Code Optimization | ✅ Released | 12-phase code analysis → diagnose → fix → verify |
-| Info Gathering | 🔄 Planning | Automated search, aggregation, dedup, structured output |
-| Document Processing | 🔄 Planning | Batch analysis, classification, summarization, formatting |
-| Multimedia Review | 📋 Evaluating | Image/audio/video understanding and quality checks |
-
-### Platform Adaptation
-
-Each agent tool has its own plugin mechanism. Loops are wired directly into the tool's native configuration — no abstraction layer needed:
-
-| Platform | How to Wire | Status |
-|----------|------------|--------|
-| **Claude Code** | `.claude-plugin/` + `hooks/` + `.claude/commands/` | 🔄 In progress |
-| **Cursor** | `.cursor/rules/` | 🔄 In progress |
-| **Codex CLI** | `.opencode/` plugin registration | 📋 Planned |
-| **Windsurf** | `.windsurf/rules/` | 📋 Planned |
-| **Gemini CLI** | `.gemini/` extension config | 📋 Planned |
+> Post-MVP: Persistent web service with interactive garden interface + schedule panel.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Claude Code — Code Optimization Loop (ready now)
-/optimize-loop "Analyze and optimize this repository"
-
-# Specific goals
-/optimize-loop "Fix security vulnerabilities and unify error handling style"
-/optimize-loop "Reduce core module complexity"
-/optimize-loop "Clean up dead code and add missing tests"
-
-# Analysis only, no changes
-/optimize-loop "Analyze this repo, generate architecture docs and risk report, don't modify code"
-```
-
-**Prerequisites:**
-
-- Any AI Coding Agent that accepts `/skill` or similar instructions
-- A target code repository (local path)
-- Recommended: `git` + the project's language runtime (the Loop auto-detects and prepares)
-
-**Installation:**
-
-```bash
-# Claude Code Marketplace
-/plugin marketplace add dotVSdoll/MakeSkillsBest
-
-# Universal — npx skills (Codex / Cursor / Gemini CLI / 50+ tools)
-npx skills add dotVSdoll/MakeSkillsBest -g
-
-# Manual (for any SKILL.md-compatible Agent)
+# Clone the repo
 git clone https://github.com/dotVSdoll/MakeSkillsBest.git
-# Copy or symlink skills/*/SKILL.md to your Agent's skill directory
+
+# Install the Gardener skill
+# Claude Code:
+ln -s $(pwd)/skills/context-gardener ~/.claude/skills/context-gardener
+
+# Run it
+/gardener "check the current project's context file health"
 ```
 
----
-
-## Platform Support
-
-| Platform | Native Loop | How to Integrate | Status |
-|----------|-------------|-----------------|--------|
-| Claude Code | ✅ `/loop` command | hooks + CLAUDE.md | Ready |
-| Codex CLI | ✅ Sub-agent dispatch | Plugin registration | Planned |
-| Cursor | ⚠️ Self-chaining agent mode | `.cursor/rules/` | In progress |
-| Windsurf | ⚠️ Cascade mode | `.windsurf/rules/` | Planned |
-| Gemini CLI | ⚠️ Extensions | `gemini-extension.json` | Planned |
-| Other tools | ❌ No loop | MCP Server injection | Evaluating |
+Detailed platform-specific installation guides coming soon.
 
 ---
 
@@ -246,38 +118,28 @@ git clone https://github.com/dotVSdoll/MakeSkillsBest.git
 
 ```
 MakeSkillsBest/
-├── skills/              # Skill definitions (single SKILL.md each)
-│   ├── engineering-loop/
-│   ├── security-audit/
-│   ├── quality-audit/
-│   └── ...
-├── loops/               # 🔄 Planned: reusable Loop pattern definitions
-│   └── code-optimization/
-├── commands/            # 🔄 Planned: CLI command registration (.toml / .md)
-├── hooks/               # 🔄 Planned: Session life-cycle hooks
-├── scripts/             # 🔄 Planned: helper scripts
-├── docs/                # Documentation
-├── images/              # Assets
-├── .claude-plugin/      # 🔄 Planned: Claude Code plugin
-├── .claude/commands/    # 🔄 Planned: Claude Code slash commands
-├── .cursor/rules/       # 🔄 Planned: Cursor rules
-├── .opencode/           # 🔄 Planned: OpenCode plugin
-├── .gemini/             # 🔄 Planned: Gemini CLI extension config
-├── .windsurf/rules/     # 🔄 Planned: Windsurf rules
-├── AGENTS.md            # Agent guidelines (tool-agnostic)
-├── CLAUDE.md            # Claude Code project instructions
-└── plugin.json          # Plugin metadata
+├── skills/
+│   └── context-gardener/     # Gardener skill (Loop Engineering infused)
+│       ├── SKILL.md           # Skill definition
+│       ├── engine/            # Core engine
+│       └── ui/                # Garden visualization
+├── archive/
+│   └── skills/                # Historical skills archive (reference)
+├── docs/
+│   └── philosophy.md          # Loop Engineering design philosophy
+├── CLAUDE.md                  # Project-level instructions
+└── README.md
 ```
 
 ---
 
-## Contributing
+## Roadmap
 
-Issues and PRs welcome.
-
-- New skills: create a directory under `skills/` with a `SKILL.md`
-- Improve existing skills: edit the corresponding `SKILL.md`
-- New Loop patterns: define Entry / Body / Exit / State / Safety under `loops/`
+| Phase | Content |
+|-------|---------|
+| **MVP** | Context Gardener skill + static HTML report |
+| **V2** | Persistent web service + interactive garden UI + scheduling |
+| **V3** | More Loop Engineering skills (TBD) |
 
 ---
 

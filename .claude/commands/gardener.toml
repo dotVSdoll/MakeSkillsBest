@@ -1,0 +1,10 @@
+# .claude/commands/gardener.toml
+# Claude Code slash command for Context Gardener
+
+command = "gardener"
+description = "🌱 Context Gardener — 巡检项目上下文文件健康度（CLAUDE.md, memory, rules），检测过期/矛盾/膨胀，生成花园报告"
+
+# Deno/Komodo-style skill format (komodo-sdm)
+[[subagents]]
+name = "context-gardener"
+skill = "context-gardener"
