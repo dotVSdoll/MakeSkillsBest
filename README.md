@@ -1,146 +1,158 @@
-# MakeSkillsBest
+# Little Gardener 🌱
 
-> **Skills that think in loops. First skill: Context Gardener 🌱**
+> **你的项目上下文是一座花园。让一个可爱的小园丁帮你照料它。**
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
-  <img src="https://img.shields.io/badge/skills-1-orange" alt="skills">
-  <br>
+  <img src="https://img.shields.io/badge/python-3.11+-orange" alt="python">
+  <img src="https://img.shields.io/badge/build-with%20love-red" alt="build">
 </p>
 
 ---
 
-### 这不是又一个 prompt 集合
+## 什么是 Little Gardener？
 
-AI Agent 能写代码、能回答问题。但让它**自动维护一个需要长期关注的东西**——比如项目里的 instructions、rules、memory 文件——情况就不一样了：
+你有没有过这种感觉——
 
-- 写好的 CLAUDE.md 三个月没人碰，约定已经过时了
-- 三个 memory 文件描述同一个决策，但说法互相矛盾
-- .claude/ 下的指令越来越多，没人敢删，也没人读
-- 每次开新会话，Agent 不认识仓库里的约定，你要重新说一遍
+项目的 `CLAUDE.md` 三个月没碰了，里面写的约定早就不对。`.claude/memory/` 下躺着七八个文件，没人知道哪些还管用。每次开新会话，Agent 不认识仓库里的规则，你得重新说一遍。
 
-问题不在模型能力，在**维护工作缺少结构**。
+这不是你的问题。**上下文文件会腐烂，就像花园会长杂草。**
 
-Loop Engineering 填补这个空白：**把维护任务定义成可重复的循环，让 Agent 自己跑、自己验证、自己决定什么时候停。**
+Little Gardener 是一个 AI Agent skill。它每天（或按你设定的节奏）在你的项目里巡逻一圈，检查这些上下文文件的健康状况，顺便修剪一下枯枝败叶。
 
----
-
-## 哲学
-
-MakeSkillsBest 是一个 **skills 仓库**。每个 skill 内嵌了 [**Loop Engineering**](docs/philosophy.md) 的工程思想——不是跑一次就结束的工具，而是能自我循环、定期维护的智能体工作流。
-
-每个 skill 的骨架：
-
-```
-Entry → Observe → Diagnose → Plan → Act → Verify → Learn → Decide
-                              ↑________________________________↓
-                     Decide=continue 时回到 Observe 或 Act
-```
-
-这个结构对三类场景尤其重要：
-
-| 场景 | 为什么需要 Loop |
-|------|----------------|
-| **需要持续维护** | 指令文件会腐烂。一次性的清理没意义，需要定期巡检 |
-| **需要多轮迭代** | 一次改不好。改完验证、发现问题、再改下一轮 |
-| **需要长期监控** | 不主动管就会退化。Loop 可以定时跑，你只需要看结果 |
+**而且它有一个可爱的 2D 像素花园——你看一眼就知道项目干不干净。**
 
 ---
 
-## Featured Skill: Context Gardener 🌱
+## 它怎么工作
 
-你的项目上下文文件（`CLAUDE.md`、`.claude/memory/*.md`、`.claude/rules/*`）就是一座花园。
-它们会随时间腐烂——过时的约定、互相矛盾的规则、无人维护的大段指令。
+整个系统跑在一个叫 **Loop Engineering** 的循环上。不用管这个术语是什么意思——你只需要知道它会自己转：
 
-**Gardener 定期巡视，修剪枯枝，拔除杂草，让你的"上下文花园"始终保持健康。**
+```
+你输入 /gardener
+       ↓
+  🔍 园艺师走进花园，巡视每棵植物（=每个文件）
+  🩺 蹲下来检查：枯萎了？长杂草了？藤蔓缠一起了？
+  📋 想一下怎么剪
+  🔧 （经你同意后）开剪
+  ✅ 退后一步，看看剪得怎么样
+  📝 记下来：这棵植物的习性
+  🔁 决定：继续巡逻，还是歇会儿？
+```
+
+每个步骤都对应 Pygame 花园里园艺师的一个动作。你在看动画的时候，就知道 Loop 跑到哪了。
+
+---
+
+## 看一眼
+
+```
+┌────────────────────────────────────────────────────┐
+│  🌱 Little Gardener                      [⚙]     │
+│  健康度: 78/100 ████████████████░░░░░             │
+│  问题: 3 个                                        │
+│                                                    │
+│   🌻 CLAUDE.md    🌿 memory/       🥀 rules/     │
+│   (92分)          (75分)           (45分)         │
+│                                                    │
+│        🧑‍🌾 → 正在修剪枯萎的植物                    │
+│                                                    │
+│  [⏸ 按 SPACE 进入待机]                             │
+└────────────────────────────────────────────────────┘
+```
+
+右边栏的 ⚙ 面板里，你可以改任何规则：
+
+- "45 天不更新才算枯萎" → 改阈值
+- "矛盾检测太吵了，关掉" → 关开关
+- "发现问题直接修，不用问我" → 改策略
+- "每周一早上 9 点自动巡逻" → 设定时
+
+---
+
+## 装一下
+
+```bash
+git clone https://github.com/dotVSdoll/little-gardener.git
+```
+
+然后打开项目。一个可爱的 hook 会自动帮你安装好 pygame，你不用敲第二行命令。
+
+---
+
+## 用一下
 
 ```bash
 # Claude Code
-/gardener "检查项目指令健康度"
+/gardener "检查项目上下文文件健康度"
 
-# Cursor
-@gardener 检查项目指令健康度
-
-# Codex CLI
-gardener run
+# 想要更深入
+/gardener "修剪花园" --apply
 ```
 
-### 它做什么
-
-每次运行是一个完整的 Loop：
-
-```
-🔍 Observe     → 扫描所有上下文文件，记录大小、修改时间、结构
-🩺 Diagnose    → 检测：过期文件 / 矛盾规则 / 过度膨胀 / 冗余内容
-📋 Plan        → 生成修剪计划（哪些该删、哪些该合并、哪些该标记）
-🔧 Act         → 应用变更（需要你的确认）
-✅ Verify      → 重新检查：问题改善了吗？有没有误删？
-📝 Learn       → 记录这次学到了什么，存到记忆里
-🔁 Decide      → 花园健康了？停。还有问题？安排下次巡检
-```
-
-### 可视化报告
-
-每次运行后生成一座"花园"全景图——每个文件是一棵植物，状态一目了然：
-
-```
-🌻 CLAUDE.md  — 健康（最近更新 3 天前）
-🌿 memory/    — 良好（1 条建议）
-🥀 rules/     — 需要关注（过期 45 天，检测到矛盾）
-```
-
-> Post-MVP：常驻 Web 服务，实时交互花园界面 + 调度配置面板。
+Agent 会跑完整个 Loop，然后啪地弹出 Pygame 窗口——你看到花园的时候，就知道你的项目干净不干净了。
 
 ---
 
-## 快速开始
+## 项目哲学
 
-```bash
-# 克隆仓库
-git clone https://github.com/dotVSdoll/MakeSkillsBest.git
+### 这不是一个工具，这是一个园丁
 
-# 安装 Gardener skill
-# Claude Code:
-ln -s $(pwd)/skills/context-gardener ~/.claude/skills/context-gardener
+大部分代码工具是"一次性"的——你运行它，它输出结果，完事了。
 
-# 运行
-/gardener "检查当前项目的上下文文件健康度"
-```
+Gardener 不是。它每次运行都是一次完整的 Loop Engineering 循环：
+- 它记得上次修剪了什么（`.gardener-memory.json`）
+- 它会自我改进（Learn 阶段）
+- 它可以定时自己跑（调度面板）
+- 它做任何修改前都会问你（Safety 优先）
 
-详细安装方式见各平台文档（即将推出）。
+### 像素风不是装饰
+
+花园不是仪表盘。**花园是一个隐喻。** 你不需要读报告——你看一眼植物的状态就知道项目健不健康。🌻 很好，🌿 还行，🥀 该管管了。直觉理解，零学习成本。
+
+---
+
+## 技术栈
+
+| 层 | 技术 | 为什么 |
+|----|------|--------|
+| 可视化 | Pygame | Python 最成熟的 2D 引擎，跨平台 |
+| 引擎 | Python 3.11+ | 统一技术栈，JSON 原生支持 |
+| 美术 | 像素风 (PNG) | Gemini 生成，可爱且轻量 |
 
 ---
 
 ## 项目结构
 
 ```
-MakeSkillsBest/
-├── skills/
-│   └── context-gardener/     # Gardener skill（Loop Engineering 嵌入）
-│       ├── SKILL.md           # Skill 定义
-│       ├── engine/            # 核心引擎
-│       └── ui/                # 花园可视化
-├── archive/
-│   └── skills/                # 历史 skill 存档（参考用）
-├── docs/
-│   └── philosophy.md          # Loop Engineering 设计哲学
-├── CLAUDE.md                  # 项目级指令
-└── README.md
+little-gardener/
+├── src/              # Python 源码（引擎 + 游戏）
+├── sprites/          # 像素美术资源
+├── skills/           # Skill 定义
+├── summary/          # 项目上下文
+└── docs/             # 文档
 ```
+
+详细架构见 [docs/architecture.md](docs/architecture.md)。
 
 ---
 
-## Roadmap
+## 路线图
 
-| 阶段 | 内容 |
-|------|------|
-| **MVP** | Context Gardener skill + 静态 HTML 报告 |
-| **V2** | 常驻 Web 服务 + 交互花园界面 + 调度配置 |
-| **V3** | 更多 Loop Engineering skill（方向待定） |
+- [x] **v0.1** — 扫描器 + 分析器 + 静态报告
+- [x] **v0.2** — Pygame 花园窗口 + 规则面板
+- [ ] **v0.3** — 完整像素美术 + 多平台支持
+- [ ] **v0.4** — 常驻 Web 服务 + 实时调度
 
 ---
 
 ## License
 
 MIT © [dotVSdoll](https://github.com/dotVSdoll)
+
+---
+
+<p align="center">
+  <i>让你的上下文花园保持茂盛 🌻</i>
+</p>
