@@ -255,7 +255,6 @@ class GardenScene:
 
     def _render_plants(self):
         """Render each file as a plant."""
-        gardener_sprite = self.load_sprite("gardener/Gardener.png")
         for plant in self.plants:
             x, y = plant["x"], plant["y"]
 
@@ -296,12 +295,25 @@ class GardenScene:
         self.gardener_x += (self.gardener_target_x - self.gardener_x) * 0.02
         self.gardener_y += (self.gardener_target_y - self.gardener_y) * 0.02
 
+        # Pick sprite based on current phase
+        phase_sprites = {
+            "observe": "gardener/grid_06_05.png",
+            "diagnose": "gardener/grid_06_06.png",
+            "plan": "gardener/grid_06_08.png",
+            "act": "gardener/grid_06_11.png",
+            "verify": "gardener/grid_07_09.png",
+            "learn": "gardener/grid_08_05.png",
+            "decide": "gardener/grid_08_09.png",
+            "idle": "gardener/grid_05_05.png",
+        }
+        sprite_path = phase_sprites.get(self.gardener_phase, "gardener/grid_05_05.png")
+
         # Draw gardener
-        sprite = self.load_sprite("gardener/Gardener.png")
+        sprite = self.load_sprite(sprite_path)
         if sprite:
-            # Scale to appropriate size
-            scaled = pygame.transform.scale(sprite, (48, 56))
-            self.screen.blit(scaled, (self.gardener_x - 24, self.gardener_y - 28))
+            sprite_size = 48
+            scaled = pygame.transform.scale(sprite, (sprite_size, sprite_size))
+            self.screen.blit(scaled, (self.gardener_x - sprite_size // 2, self.gardener_y - sprite_size // 2))
         else:
             # Fallback: draw a cute character with shapes
             body_y = int(self.gardener_y)
