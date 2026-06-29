@@ -13,6 +13,8 @@ loop-phases:
 state-files:
   - .gardener-state.json
   - .gardener-memory.json
+  - .gardener-config.json
+garden-launch: "python -m src.main garden <project-path>"
 ---
 
 # Context Gardener 🌱 — 上下文园艺师
@@ -480,6 +482,67 @@ for each action in plan.actions:
 处理: 3 修复 | 1 跳过 | 1 待确认
 状态: ✅ 停止（建议 30 天后复查）
 ```
+
+---
+
+## 🖼 花园可视化
+
+本 skill 附带一个 **Pygame 2D 花园窗口**，将 `.gardener-state.json` 的数据映射为可视化场景。
+
+### 工作流
+
+```
+Agent 完成 Loop（或循环中）→ launch python -m src.main garden <项目路径>
+                                        │
+                                        └── Pygame 窗口打开
+                                            │
+                                            ├── 植物 = 上下文文件
+                                            ├── 园艺师 = Loop 阶段动画
+                                            ├── HUD = 健康分 + 问题数
+                                            └── 右边栏 = 规则设置面板
+```
+
+### 映射关系
+
+| Garden 元素 | 对应数据 |
+|-------------|---------|
+| 🌻 茂盛的植物 | 健康分 ≥80 的文件 |
+| 🌿 正常植物 | 健康分 50-79 的文件 |
+| 🥀 枯萎植物 | 健康分 <50 的文件 |
+| 🧑‍🌾 园艺师 | 当前 Loop 阶段（Observe→巡视, Diagnose→检查, Act→修剪） |
+| 右上角 HUD | 总体健康分 / 问题数 / 上次运行时间 |
+| 右侧面板 ⚙ | `.gardener-config.json` 可视化编辑 |
+
+### 启动方式
+
+Gardener Loop 跑完（或在 Decide 阶段期间），Agent 启动花园窗口：
+
+```bash
+# 由 Agent 自动执行
+python -m src.main garden <项目路径>
+```
+
+窗口属性：
+- 分辨率：1280×720
+- 背景：渐变色天空 + 草地
+- 植物：自动根据文件数排列在花园中
+- 园艺师：根据 Loop 阶段自动移动和改变动作
+- 待机模式：按 SPACE 或 Loop 结束后进入待机（窗口不关闭）
+
+### 规则设置面板
+
+右侧面板（按 `S` 或点击 ⚙ 打开）提供完整的配置编辑：
+
+```
+⚙ 规则设置
+├── ⏱ 调度        cron 表达式 / 启用开关
+├── 📏 阈值        staleDays / maxLines / maxWords
+├── 🔍 检测        枯萎 / 矛盾 / 膨胀 / 枯根 开关
+├── ⚡ 策略        ask / auto / report-only
+└── 🔄 Loop 流程   停止条件 / 跳过阶段 / 确认环节
+```
+
+所有修改实时保存到 `.gardener-config.json`。
 
 ---
 

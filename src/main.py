@@ -95,12 +95,12 @@ def cmd_garden(args: argparse.Namespace) -> None:
     try:
         from src.game.garden_scene import run_garden
         state = {
-            "health": health,
+            "health": health if isinstance(health, dict) else {"current": health, "previous": None, "issuesRemaining": len(issues)},
             "issues": [i.to_dict() for i in issues],
             "files": [f.to_dict() for f in scanned.files],
             "project": Path(project_path).resolve().name,
         }
-        run_garden(state)
+        run_garden(state, project_path=project_path)
     except ImportError as e:
         print(f"❌ Could not start garden: {e}", file=sys.stderr)
         print("   Make sure pygame is installed: pip install pygame", file=sys.stderr)
