@@ -29,6 +29,13 @@ build/
 .gardener-state.json
 .gardener-backup/
 
+# Local workspace documentation (not uploaded to remote)
+summary/
+
+# Old IDE configs
+.cursor/
+.opencode/
+
 # Python
 *.egg-info/
 .pytest_cache/

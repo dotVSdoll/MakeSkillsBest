@@ -42,12 +42,27 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # ── D) Loop flow customization ──
     "loop": {
         "enabled": True,
+        "mode": "managed",          # "managed" | "custom"
         "skipPhases": [],          # e.g. ["plan"] to skip plan phase
         "maxIterations": 5,
         "requireConfirmationFor": ["act", "replan"],
         "exitCondition": {
             "healthTarget": 90,    # Stop when health >= this
             "maxRoundsNoImprovement": 3,  # Stop after N rounds with <5 gain
+        },
+        "stop": {
+            "allowManualStop": True,
+            "stopWhenAllLayersHealthy": True,
+            "stopAfterScheduledWindow": True,
+        },
+        "phaseSkills": {
+            "observe": {"skill": "context-gardener", "enabled": True},
+            "diagnose": {"skill": "context-gardener", "enabled": True},
+            "plan": {"skill": "context-gardener", "enabled": True},
+            "act": {"skill": "context-gardener", "enabled": True},
+            "verify": {"skill": "context-gardener", "enabled": True},
+            "learn": {"skill": "context-gardener", "enabled": True},
+            "decide": {"skill": "context-gardener", "enabled": True},
         },
     },
 
@@ -56,6 +71,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "enabled": False,
         "cron": "0 9 * * 1",       # Every Monday 9am (cron format)
         "timezone": "local",
+        "runWindowMinutes": 30,
     },
 }
 
