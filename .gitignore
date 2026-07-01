@@ -27,7 +27,12 @@ build/
 
 # Gardener runtime state (generated at runtime, not committed)
 .gardener-state.json
+.gardener-config.json
+.gardener-memory.json
+.gardener-hooks.jsonl
 .gardener-backup/
+web/public/garden-state.json
+web/public/gardener-config.json
 
 # Local workspace documentation (not uploaded to remote)
 summary/

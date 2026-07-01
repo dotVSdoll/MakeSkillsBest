@@ -3,6 +3,7 @@ Context Gardener — Entry points.
 
 CLI:
     python -m src.main scan [--stale-days N] [--output FILE] <project_path>
+    python -m src.main web [--open] [<project_path>]
     python -m src.main garden [<project_path>]
 
 Modes:
@@ -17,7 +18,8 @@ from pathlib import Path
 
 from src.scanner import scan
 from src.analyser import analyse
-from src.gardener_state import load_memory, init_state, save_state
+from src.gardener_state import load_memory
+from src.web_runtime import run_web_runtime
 
 
 def cmd_scan(args: argparse.Namespace) -> None:
@@ -107,10 +109,21 @@ def cmd_garden(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_web(args: argparse.Namespace) -> None:
+    """Run one basic loop pass and launch the Web Canvas visualisation."""
+    result = run_web_runtime(
+        args.project or ".",
+        port=args.port,
+        open_browser=args.open,
+        start_server=not args.no_server,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="🌱 Context Gardener")
     parser.add_argument("--version", action="version", version="0.1.0")
-    sub = parser.add_subparsers(dest="mode", help="Mode: scan (headless) or garden (interactive)")
+    sub = parser.add_subparsers(dest="mode", help="Mode: scan, web, or garden")
 
     # scan mode
     scan_p = sub.add_parser("scan", help="Run scanner + analyser (headless)")
@@ -124,9 +137,18 @@ def main() -> None:
     garden_p = sub.add_parser("garden", help="Launch interactive garden (Pygame)")
     garden_p.add_argument("project", nargs="?", default=".", help="Project path")
 
+    # web mode
+    web_p = sub.add_parser("web", help="Run basic loop and launch Web Canvas garden")
+    web_p.add_argument("project", nargs="?", default=".", help="Project path")
+    web_p.add_argument("--open", action="store_true", help="Open the local web page in a browser")
+    web_p.add_argument("--port", type=int, default=5173, help="Vite dev server port")
+    web_p.add_argument("--no-server", action="store_true", help="Only write JSON state files")
+
     args = parser.parse_args()
     if args.mode == "scan":
         cmd_scan(args)
+    elif args.mode == "web":
+        cmd_web(args)
     elif args.mode == "garden":
         cmd_garden(args)
     else:

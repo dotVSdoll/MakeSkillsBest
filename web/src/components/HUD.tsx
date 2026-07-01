@@ -1,8 +1,3 @@
-/**
- * HUD — health bar, issue count, settings toggle.
- * Rendered as a React overlay on top of the Canvas.
- */
-
 import { COLORS } from '../constants.ts';
 
 interface HUDProps {
@@ -28,32 +23,15 @@ export default function HUD({ health, issueCount, onToggleSettings }: HUDProps) 
         flexDirection: 'column',
         gap: 8,
         padding: '12px 16px',
-        background: 'rgba(30,40,30,0.8)',
+        background: 'rgba(30,40,30,0.82)',
         borderRadius: 8,
-        minWidth: 220,
+        minWidth: 260,
       }}
     >
-      {/* Title row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ color: '#E8F5E9', fontSize: 20, fontWeight: 'bold' }}>
-          🌱 Little Gardener
-        </span>
-        <button
-          onClick={onToggleSettings}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: 20,
-            color: '#C8E6C9',
-          }}
-          title="设置 (S)"
-        >
-          ⚙
-        </button>
+      <div style={{ color: '#E8F5E9', fontSize: 20, fontWeight: 'bold' }}>
+        Little Gardener
       </div>
 
-      {/* Health row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: '#C8E6C9', fontSize: 14 }}>
           健康度:
@@ -61,9 +39,28 @@ export default function HUD({ health, issueCount, onToggleSettings }: HUDProps) 
         <span style={{ color: barColor, fontSize: 14, fontWeight: 'bold' }}>
           {health}/100
         </span>
+        <button
+          type="button"
+          onClick={onToggleSettings}
+          data-testid="settings-toggle"
+          style={{
+            marginLeft: 'auto',
+            minWidth: 64,
+            height: 28,
+            background: 'rgba(76,175,80,0.22)',
+            border: '1px solid rgba(200,230,201,0.55)',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 700,
+            color: '#C8E6C9',
+          }}
+          title="设置 (S)"
+        >
+          设置
+        </button>
       </div>
 
-      {/* Health bar */}
       <div
         style={{
           width: '100%',
@@ -84,7 +81,6 @@ export default function HUD({ health, issueCount, onToggleSettings }: HUDProps) 
         />
       </div>
 
-      {/* Issue count */}
       <span style={{ color: '#C8E6C9', fontSize: 12 }}>
         问题: {issueCount} 个
       </span>

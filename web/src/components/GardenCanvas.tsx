@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react';
 import { startGameLoop } from '../engine/gameLoop.ts';
 import { renderFrame } from '../engine/renderer.ts';
 import type { RenderState } from '../engine/renderer.ts';
-import { SCREEN_W, SCREEN_H } from '../constants.ts';
+import { SCENE_DISPLAY_SCALE, SCREEN_W, SCREEN_H } from '../constants.ts';
 
 interface GardenCanvasProps {
   getRenderState: () => RenderState;
@@ -45,8 +45,8 @@ export default function GardenCanvas({ getRenderState, onFrame }: GardenCanvasPr
     <canvas
       ref={canvasRef}
       style={{
-        width: SCREEN_W,
-        height: SCREEN_H,
+        width: SCREEN_W * SCENE_DISPLAY_SCALE,
+        height: SCREEN_H * SCENE_DISPLAY_SCALE,
         display: 'block',
         imageRendering: 'pixelated',
       }}

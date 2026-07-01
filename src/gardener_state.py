@@ -29,7 +29,7 @@ def load_state(project_path: str) -> Optional[Dict[str, Any]]:
 def save_state(project_path: str, state: Dict[str, Any]) -> str:
     """Save .gardener-state.json to the project root."""
     fp = Path(project_path) / STATE_FILE
-    fp.write_text(json.dumps(state, ensure_ascii=False, indent=2), "utf-8")
+    write_json_atomic(fp, state)
     return str(fp)
 
 
@@ -54,8 +54,15 @@ def load_memory(project_path: str) -> Dict[str, Any]:
 def save_memory(project_path: str, memory: Dict[str, Any]) -> str:
     """Save .gardener-memory.json to the project root."""
     fp = Path(project_path) / MEMORY_FILE
-    fp.write_text(json.dumps(memory, ensure_ascii=False, indent=2), "utf-8")
+    write_json_atomic(fp, memory)
     return str(fp)
+
+
+def write_json_atomic(path: Path, data: Dict[str, Any]) -> None:
+    """Write JSON via a temporary file and atomic replace."""
+    tmp = path.with_name(f"{path.name}.tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
+    tmp.replace(path)
 
 
 def init_state(repo: str) -> Dict[str, Any]:
@@ -64,15 +71,15 @@ def init_state(repo: str) -> Dict[str, Any]:
         "meta": {
             "repo": repo,
             "createdAt": None,
-            "currentPhase": "observe",
+            "currentPhase": "idle",
             "loopCount": 0,
-            "status": "running",
+            "status": "standby",
             "firstRunComplete": False,
         },
         "loop": {
-            "status": "running",
-            "activePhase": "observe",
-            "activeLayer": "CLAUDE.md",
+            "status": "standby",
+            "activePhase": "idle",
+            "activeLayer": None,
             "firstRunComplete": False,
             "lastTransitionAt": None,
             "stopReason": None,

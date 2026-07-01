@@ -1,0 +1,9 @@
+{
+  "name": "little-gardener",
+  "version": "0.1.0",
+  "description": "Context Gardener loop command and lightweight Claude Code lifecycle hooks.",
+  "author": {
+    "name": "Little Gardener"
+  },
+  "hooks": "./hooks/claude-gardener-hooks.json"
+}

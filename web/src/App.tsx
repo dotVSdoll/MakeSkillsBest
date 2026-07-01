@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import type { MutableRefObject } from 'react';
 import GardenCanvas from './components/GardenCanvas.tsx';
 import HUD from './components/HUD.tsx';
 import SettingsPanel from './components/SettingsPanel.tsx';
@@ -12,7 +13,7 @@ import { useGardenData } from './hooks/useGardenData.ts';
 import { buildDefaultTileMap } from './engine/tiles.ts';
 import { updateGardener } from './engine/gardener.ts';
 import { preloadSprites } from './sprites/images.ts';
-import { COLS, ROWS, SCREEN_H, SCREEN_W } from './constants.ts';
+import { COLS, ROWS, SCENE_DISPLAY_SCALE, SCREEN_H, SCREEN_W } from './constants.ts';
 import { LAYER_ROWS, LAYER_WORK_ANCHORS, PLANT_SLOTS, SCENE_ANCHORS } from './scene/layout.ts';
 import type { RenderState } from './engine/renderer.ts';
 import type {
@@ -25,13 +26,24 @@ import type {
 } from './types.ts';
 import { LOOP_PHASES } from './types.ts';
 
+declare global {
+  interface Window {
+    __GARDENER_DEBUG__?: {
+      gardener: GardenerType;
+      activeLayer: GardenLayer | null;
+      shouldIdle: boolean;
+      loopStatus: GardenState['loop'] extends infer Runtime ? Runtime : never;
+    };
+  }
+}
+
 export default function App() {
   const debugMode = new URLSearchParams(window.location.search).get('debug');
   const { state, config, loading, setConfig } = useGardenData();
   const [showSettings, setShowSettings] = useState(false);
   const [standby, setStandby] = useState(false);
-  const [health, _setHealth] = useState(state.health.current);
-  const [issueCount, _setIssueCount] = useState(state.issues.length);
+  const health = state.health.current;
+  const issueCount = state.health.issuesRemaining ?? state.issues.length;
 
   // Mutable state refs — updated every frame without React re-renders
   const tileMap = useRef<TileType[][]>(buildDefaultTileMap(ROWS, COLS));
@@ -48,6 +60,7 @@ export default function App() {
   const time = useRef(0);
   const standbyRef = useRef(standby);
   standbyRef.current = standby;
+  const routeKeyRef = useRef('');
   const stateRef = useRef(state);
   const configRef = useRef(config);
   stateRef.current = state;
@@ -75,16 +88,20 @@ export default function App() {
 
     if (shouldIdle) {
       g.phase = 'idle';
-      g.targetX = SCENE_ANCHORS.idle.x;
-      g.targetY = SCENE_ANCHORS.idle.y;
+      setGardenerRoute(g, SCENE_ANCHORS.idle.x, SCENE_ANCHORS.idle.y, 'idle', routeKeyRef);
     } else {
       g.phase = runtime?.activePhase ?? LOOP_PHASES[0];
       const target = activeLayer ? LAYER_WORK_ANCHORS[activeLayer] : SCENE_ANCHORS[g.phase];
-      g.targetX = target.x;
-      g.targetY = target.y;
+      setGardenerRoute(g, target.x, target.y, `${g.phase}:${activeLayer ?? 'phase'}`, routeKeyRef);
     }
 
     updateGardener(g, dt);
+    window.__GARDENER_DEBUG__ = {
+      gardener: { ...g },
+      activeLayer,
+      shouldIdle,
+      loopStatus: runtime,
+    };
     time.current += dt;
   }, []);
 
@@ -138,8 +155,8 @@ export default function App() {
       outline: 'none',
     }}>
       <div style={{
-        width: SCREEN_W,
-        height: SCREEN_H,
+        width: SCREEN_W * SCENE_DISPLAY_SCALE,
+        height: SCREEN_H * SCENE_DISPLAY_SCALE,
         position: 'relative',
         flex: '0 0 auto',
         overflow: 'hidden',
@@ -211,9 +228,15 @@ function getActiveLayer(
   state: GardenState,
   healthTarget: number,
 ): GardenLayer | null {
-  if (state.loop?.activeLayer) return state.loop.activeLayer;
-
   const layerHealth = state.layerHealth;
+  const runtimeLayer = state.loop?.activeLayer;
+
+  if (runtimeLayer) {
+    const health = layerHealth?.[runtimeLayer];
+    if (!state.loop?.firstRunComplete || !health) return runtimeLayer;
+    if (health.score < healthTarget || health.issues > 0) return runtimeLayer;
+  }
+
   if (!layerHealth) return null;
 
   return LAYER_ROWS.find((layer) => (
@@ -256,4 +279,41 @@ function problemPlantColumns(state: GardenState): Partial<Record<GardenLayer, nu
 function stableProblemColumn(layer: GardenLayer, salt: number): number {
   const hash = Array.from(layer).reduce((sum, char) => sum + char.charCodeAt(0), salt);
   return hash % 4;
+}
+
+function setGardenerRoute(
+  gardener: GardenerType,
+  targetX: number,
+  targetY: number,
+  key: string,
+  routeKeyRef: MutableRefObject<string>,
+): void {
+  const routeKey = `${key}:${targetX}:${targetY}`;
+  if (routeKeyRef.current === routeKey) return;
+
+  routeKeyRef.current = routeKey;
+  gardener.targetX = targetX;
+  gardener.targetY = targetY;
+  gardener.waypoints = buildHiddenRoute(gardener.x, gardener.y, targetX, targetY);
+}
+
+function buildHiddenRoute(
+  fromX: number,
+  fromY: number,
+  targetX: number,
+  targetY: number,
+): Array<{ x: number; y: number }> {
+  const corridorY = 6 * 64 + 56;
+  const hubX = 8 * 64 - 8;
+  const points = [
+    { x: fromX, y: corridorY },
+    { x: hubX, y: corridorY },
+    { x: targetX, y: corridorY },
+    { x: targetX, y: targetY },
+  ];
+
+  return points.filter((point, index, all) => {
+    const previous = index === 0 ? { x: fromX, y: fromY } : all[index - 1];
+    return Math.hypot(point.x - previous.x, point.y - previous.y) > 8;
+  });
 }

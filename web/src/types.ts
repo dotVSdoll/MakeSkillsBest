@@ -21,11 +21,26 @@ export interface GardenHealth {
 }
 
 export type GardenLayer = 'CLAUDE.md' | 'skills' | 'hooks' | 'memory';
+export type LoopStepPhase =
+  | 'observe'
+  | 'diagnose'
+  | 'plan'
+  | 'act'
+  | 'verify'
+  | 'learn'
+  | 'decide';
 
 export interface LayerHealth {
   score: number;
   issues: number;
   status: 'healthy' | 'warning' | 'critical';
+}
+
+export interface LoopSkillStep {
+  id: string;
+  phase: LoopStepPhase;
+  skill: string;
+  enabled: boolean;
 }
 
 export interface GardenLoopRuntime {
@@ -71,6 +86,8 @@ export interface GardenerConfig {
     skipPhases: string[];
     maxIterations: number;
     requireConfirmationFor: string[];
+    stepLimit: number;
+    steps: LoopSkillStep[];
     exitCondition: {
       healthTarget: number;
       maxRoundsNoImprovement: number;
@@ -118,22 +135,15 @@ export interface Gardener {
   y: number;
   targetX: number;
   targetY: number;
+  waypoints?: Array<{ x: number; y: number }>;
   phase: GardenerPhase;
   direction: 'front' | 'back' | 'left' | 'right';
   frame: number;
 }
 
-export type GardenerPhase =
-  | 'observe'
-  | 'diagnose'
-  | 'plan'
-  | 'act'
-  | 'verify'
-  | 'learn'
-  | 'decide'
-  | 'idle';
+export type GardenerPhase = LoopStepPhase | 'idle';
 
-export const LOOP_PHASES: GardenerPhase[] = [
+export const LOOP_PHASES: LoopStepPhase[] = [
   'observe', 'diagnose', 'plan', 'act', 'verify', 'learn', 'decide',
 ];
 

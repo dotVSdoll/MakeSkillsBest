@@ -78,13 +78,17 @@ function drawGardenerFallback(
 /** Update gardener movement toward target */
 export function updateGardener(gardener: GardenerType, dt: number): void {
   const speed = 88; // pixels per second
-  const dx = gardener.targetX - gardener.x;
-  const dy = gardener.targetY - gardener.y;
+  const nextPoint = gardener.waypoints?.[0] ?? { x: gardener.targetX, y: gardener.targetY };
+  const dx = nextPoint.x - gardener.x;
+  const dy = nextPoint.y - gardener.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
   if (dist < 2) {
-    gardener.x = gardener.targetX;
-    gardener.y = gardener.targetY;
+    gardener.x = nextPoint.x;
+    gardener.y = nextPoint.y;
+    if (gardener.waypoints && gardener.waypoints.length > 0) {
+      gardener.waypoints.shift();
+    }
     return;
   }
 
@@ -105,7 +109,7 @@ export function advancePhase(
   gardener: GardenerType,
   _plantPositions: { x: number; y: number }[],
 ): void {
-  const currentIdx = LOOP_PHASES.indexOf(gardener.phase);
+  const currentIdx = LOOP_PHASES.findIndex((phase) => phase === gardener.phase);
   const nextIdx = (currentIdx + 1) % LOOP_PHASES.length;
   gardener.phase = LOOP_PHASES[nextIdx];
 

@@ -2,6 +2,7 @@
 
 export const SCREEN_W = 1280;
 export const SCREEN_H = 720;
+export const SCENE_DISPLAY_SCALE = 0.82;
 export const TILE_SIZE = 64;
 
 /** How many tiles fit on screen */
