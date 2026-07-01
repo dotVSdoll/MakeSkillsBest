@@ -1,0 +1,39 @@
+{
+  "name": "little-gardener",
+  "version": "0.1.0",
+  "description": "A Claude Code loop skill with a Web Canvas garden for project context health.",
+  "license": "MIT",
+  "author": "Little Gardener",
+  "bin": {
+    "garden": "bin/gardener-run.js"
+  },
+  "scripts": {
+    "install-claude": "node bin/gardener-install.js",
+    "build:web": "npm run build --prefix web",
+    "test:service": "node scripts/test_service_mode.mjs",
+    "test:phase": "node scripts/test_explicit_phase_writer.mjs",
+    "test:visual": "node scripts/test_visual_hook_e2e.mjs"
+  },
+  "files": [
+    "bin/",
+    "commands/",
+    "hooks/",
+    "skills/",
+    "src/*.py",
+    "web/index.html",
+    "web/package.json",
+    "web/package-lock.json",
+    "web/tsconfig.json",
+    "web/vite.config.ts",
+    "web/src/",
+    "web/public/sprites/",
+    ".claude-plugin/",
+    ".codex-plugin/",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

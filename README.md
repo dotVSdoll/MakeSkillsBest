@@ -1,171 +1,182 @@
-```
-   ╻ ╻┏━┓╻  ╻ ╻┏━┓┏━┓┏━╸┏━┓┏━┓╻┏━┓
-   ┃ ┃┣━┛┃  ┃ ┃┣━┛┣━┫┣╸ ┣━┫┗━┓┃┣━┛
-   ┗━┛╹  ┗━╸┗━┛╹  ╹ ╹┗━╸╹ ╹┗━┛╹╹
-
-   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
-   你的项目是一座花园，让一个可爱的小园丁帮你照料它
-   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
-```
+<h1 align="center">
+  <span style="color:#22c55e;font-family:Segoe UI,Inter,Arial,sans-serif;">Little Gardener</span>
+</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="version">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
-  <img src="https://img.shields.io/badge/python-3.11+-orange" alt="python">
-  <img src="https://img.shields.io/badge/build-with%20♥-red" alt="build">
-  <img src="https://img.shields.io/badge/mood-%F0%9F%8C%B1%20cozy-brightgreen" alt="mood">
+  <strong style="color:#38bdf8;font-family:Segoe UI,Inter,Arial,sans-serif;">
+    A Web Canvas garden for Claude Code loop engineering and project context health.
+  </strong>
 </p>
 
-<br>
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.1.0-22c55e" alt="version">
+  <img src="https://img.shields.io/badge/runtime-Python%203.11%2B-38bdf8" alt="python">
+  <img src="https://img.shields.io/badge/frontend-Vite%20%2B%20React-f59e0b" alt="frontend">
+  <img src="https://img.shields.io/badge/license-MIT-a855f7" alt="license">
+</p>
+
+<h2 align="center">
+  <span style="color:#f59e0b;font-family:Trebuchet MS,Segoe UI,Inter,Arial,sans-serif;">
+    Web Canvas Garden Preview
+  </span>
+</h2>
 
 <p align="center">
-  <img src="docs/scene-concept.png" alt="Little Gardener 概念场景" width="720">
+  <img src="SceneforGardener.png" alt="Little Gardener scene overview（参考图）" width="860">
   <br>
-  <em>一个在花园里忙碌的小园丁——你的项目上下文健康吗？</em>
+  <em>⬆ 参考效果图，实际渲染以 Web Canvas 实时画面为准</em>
 </p>
 
----
+Little Gardener turns a project into a small pixel garden. Claude Code runs a
+context-health loop, the Python runtime writes durable JSON state, and the Web
+Canvas scene shows which phase and layer the agent is working on.
 
-## 🌱 什么是 Little Gardener？
+The current first release focuses on one skill family: **Context Gardener**.
+It scans and evaluates context files such as `CLAUDE.md`, `.github/`
+instructions, local skills, hooks, and memory files.
 
-你有没有过这种感觉——
+## Install
 
-项目的 `CLAUDE.md` 三个月没碰了，里面写的约定早就不对。`.claude/memory/` 下躺着七八个文件，没人知道哪些还管用。每次开新会话，Agent 不认识仓库里的规则，你得重新说一遍。
-
-**这不是你的问题。** 上下文文件会腐烂，就像花园会长杂草。
-
-<br>
-
-> **Little Gardener** 是一个 AI Agent skill。它每天（或按你设定的节奏）在你的项目里巡逻一圈，检查这些上下文文件的健康状况，顺便修剪一下枯枝败叶。
-
-<br>
-
-> 而且它有一个可爱的 2D 像素花园——**你看一眼就知道项目干不干净。**
-
----
-
-## 🔄 它怎么工作
-
-整个系统跑在一个叫 **Loop Engineering** 的循环上。不用管这个术语是什么意思——你只需要知道它会自己转：
-
-```
-你输入 /gardener
-       ↓
-  🔍  园艺师走进花园，巡视每棵植物（=每个文件）
-  🩺  蹲下来检查：枯萎了？长杂草了？藤蔓缠一起了？
-  📋  想一下怎么剪
-  🔧 （经你同意后）开剪
-  ✅  退后一步，看看剪得怎么样
-  📝  记下来：这棵植物的习性
-  🔁  决定：继续巡逻，还是歇会儿？
-```
-
-每个步骤都对应 Pygame 花园里园艺师的一个动作。你在看动画的时候，就知道 Loop 跑到哪了。
-
----
-
-## 🎮 花园界面预览
-
-```
-┌────────────────────────────────────────────────────┐
-│  🌱 Little Gardener                      [⚙]     │
-│  健康度: 78/100 ████████████████░░░░░             │
-│  问题: 3 个                                        │
-│                                                    │
-│   🌻 CLAUDE.md    🌿 memory/       🥀 rules/     │
-│   (92分)          (75分)           (45分)         │
-│                                                    │
-│        🧑‍🌾 → 正在修剪枯萎的植物                    │
-│                                                    │
-│  [⏸ 按 SPACE 进入待机]                             │
-└────────────────────────────────────────────────────┘
-```
-
-右边栏的 ⚙ 面板里，你可以改任何规则：
-
-- 「45 天不更新才算枯萎」→ 改阈值
-- 「矛盾检测太吵了，关掉」→ 关开关
-- 「发现问题直接修，不用问我」→ 改策略
-- 「每周一早上 9 点自动巡逻」→ 设定时
-
----
-
-## 🚀 装一下
+Install into Claude Code with `npx`:
 
 ```bash
-git clone https://github.com/dotVSdoll/little-gardener.git
+npx -y github:dotVSdoll/little-gardener install-claude
 ```
 
-然后打开项目。一个可爱的 hook 会自动帮你装好 pygame，你不用敲第二行命令。
-
-## 🎯 用一下
+For local development from a checkout:
 
 ```bash
-# Claude Code
-/gardener "检查项目上下文文件健康度"
-
-# 想要更深入
-/gardener "修剪花园" --apply
+node bin/gardener-run.js install-claude
 ```
 
-Agent 会跑完整个 Loop，然后啪地弹出 Pygame 窗口——**你看到花园的时候，就知道你的项目干净不干净了。**
+`garden install-claude` registers:
 
----
+- `~/.claude/commands/garden.toml`
+- `~/.claude/skills/context-gardener`
+- `~/.claude/skills/gardener-*`
+- `~/.claude/little-gardener`, a self-contained runtime copy
+- `~/.claude/bin/garden.cmd` on Windows, or `~/.claude/bin/garden` on macOS/Linux
+- Claude Code lifecycle hooks that call the installed launcher
 
-## 🏗️ 技术栈
+After installation, open any project in Claude Code and run:
 
-| 层 | 技术 | 为什么 |
-|----|------|--------|
-| 可视化 | Pygame | Python 最成熟的 2D 引擎，跨平台 |
-| 引擎 | Python 3.11+ | 统一技术栈，JSON 原生支持 |
-| 美术 | 像素风 (PNG) | Gemini 生成，可爱且轻量 |
-
-## 📁 项目结构
-
-```
-little-gardener/
-├── src/              # Python 源码（引擎 + 游戏）
-├── sprites/          # 像素美术资源
-├── skills/           # Skill 定义
-├── summary/          # 项目上下文
-└── docs/             # 文档 & 概念图
+```text
+/garden
 ```
 
-详细架构见 [docs/architecture.md](docs/architecture.md)。
+The command starts or reuses the local Web Canvas service, opens the browser,
+runs the first scan immediately, then returns control to the Claude Code
+session. The background service scans again every 6 hours and pauses after the
+default 24 hour window unless the user stops it earlier.
 
----
+## How It Works
 
-## 🧭 项目哲学
+Little Gardener has four moving pieces:
 
-### 这不是一个工具，这是一个园丁
+1. **Claude command**: `/garden` asks Claude Code to invoke `garden . --open`.
+2. **Global CLI**: `garden` resolves its installed package root, starts the
+   Python runtime, installs web dependencies on first use, and launches Vite.
+3. **Python runtime**: `src/main.py` and `src/web_runtime.py` scan the target
+   project, calculate health, write state, and manage the detached scheduler.
+4. **Web Canvas**: `web/src/App.tsx` reads JSON state and maps loop phases onto
+   the pixel scene.
 
-大部分代码工具是「一次性」的——你运行它，它输出结果，完事了。
+The loop phases are:
 
-Gardener 不是。它每次运行都是一次完整的 Loop Engineering 循环：
+```text
+observe -> diagnose -> plan -> act -> verify -> learn -> decide -> idle
+```
 
-- 它记得上次修剪了什么（`.gardener-memory.json`）
-- 它会自我改进（Learn 阶段）
-- 它可以定时自己跑（调度面板）
-- 它做任何修改前都会问你（Safety 优先）
+Each phase can explicitly update the visual state:
 
-### 像素风不是装饰
+```bash
+garden phase . observe
+garden phase . diagnose --layer hooks
+garden phase . idle
+```
 
-花园不是仪表盘。**花园是一个隐喻。** 你不需要读报告——你看一眼植物的状态就知道项目健不健康。🌻 很好，🌿 还行，🥀 该管管了。直觉理解，零学习成本。
+Explicit phase writes are the source of truth. Claude hooks remain as a fallback
+when a skill has not written a recent phase. `idle` means the character stops in
+place; the service may still be running and waiting for the next scheduled scan.
 
----
+## Runtime Files
 
-## 🗺️ 路线图
+Little Gardener writes runtime data into the project being scanned:
 
-- [x] **v0.1** — 扫描器 + 分析器 + 静态报告
-- [x] **v0.2** — Pygame 花园窗口 + 规则面板
-- [ ] **v0.3** — 完整像素美术 + 多平台支持
-- [ ] **v0.4** — 常驻 Web 服务 + 实时调度
+- `.gardener-state.json`: latest visual and health state
+- `.gardener-memory.json`: durable loop memory across rounds
+- `.gardener-service.json`: background service pid, status, port, and schedule
+- `.gardener-runs/round-*.json`: immutable snapshots for each scan round
+- `.gardener-config.json`: user rules, thresholds, schedule, and skill mapping
 
----
+These files are ignored by git by default.
 
-## 🎨 概念美术
+## Project Layout
 
-> 你看到的 `docs/scene-concept.png` 是用以下提示词在 Gemini 生成的像素风概念图，作为花园界面的视觉参考。美术资源最终会替换掉代码中的形状渲染 fallback。
+```text
+bin/                         CLI launcher, installer, phase writer
+commands/                    Claude Code /garden command
+hooks/                       Claude lifecycle hook fallback
+skills/context-gardener/     loop orchestrator skill
+skills/gardener-*/           focused phase skills
+src/                         Python scanner, analyser, state, service runtime
+web/                         Vite + React + Canvas 2D visualizer
+docs/                        architecture notes and preview images
+scripts/                     Playwright and runtime regression checks
+```
+
+## Current Scope
+
+The first version is intentionally narrow:
+
+- Web Canvas is the only supported visualization path.
+- The default loop audits context-health files and does not modify source code.
+- The service mode runs a first pass immediately, then scans every 6 hours.
+- Skills can be remapped by configuration, but deep multi-platform agent testing
+  is not part of v0.1.
+
+## Next Work
+
+The next releases should improve these areas:
+
+- **Installer polish**: publish to npm, add `garden doctor`, and validate PATH,
+  Python, Node, and Claude Code config in one command.
+- **Service controls**: expose service status, pause, resume, stop, and next scan
+  time directly in the Web UI.
+- **Skill composition**: split the orchestration skill into smaller installable
+  phase skills and support user-defined key/value step mappings in the UI.
+- **Agent fidelity**: make Claude Code phase writes part of every phase skill so
+  the character always reflects the active skill instead of hook inference.
+- **Long-run memory**: add richer round summaries, compaction, and comparisons
+  between the current and previous project health.
+- **Visual QA**: keep Playwright screenshot tests for phase movement, idle
+  behavior, active layer rows, and real project scans.
+
+## Development
+
+```bash
+python -m src.main scan .
+python -m src.main garden . --open --once
+npm run build --prefix web
+```
+
+Useful regression checks:
+
+```bash
+node scripts/test_service_mode.mjs
+node scripts/test_explicit_phase_writer.mjs
+node scripts/test_claude_hook_phase_mapping.mjs
+node scripts/test_config_api_persistence.mjs
+node scripts/test_visual_hook_e2e.mjs
+python -m compileall src
+npm run build --prefix web
+```
+
+## 🎨 Concept Art
+
+> The `SceneforGardener.png` shown above was generated in Gemini with the
+> following prompt as a pixel art concept reference. Final art will replace
+> the procedural shape fallbacks in the Canvas renderer.
 
 ```
 Generate a pixel art top-down garden scene concept, 1280x720 pixels.
@@ -186,7 +197,11 @@ The overall mood is calm, cozy, and charming — like a peaceful afternoon
 in a cottage garden. Make it look like a 16-bit game screenshot.
 ```
 
----
+## Next Releases
+
+- **v0.2** — Complete pixel art assets + multi-platform support
+- **v0.3** — Persistent Web service + real-time scheduling
+- **v0.4** — Skill UI composition in garden settings panel
 
 ## 📜 License
 
@@ -195,5 +210,5 @@ MIT © [dotVSdoll](https://github.com/dotVSdoll)
 ---
 
 <p align="center">
-  <code>让你的上下文花园保持茂盛 🌻</code>
+  <code>Keep your context garden flourishing 🌻</code>
 </p>

@@ -1,62 +1,50 @@
-# Loop Engineering 设计哲学
+# Loop Engineering Philosophy
 
-## 问题
+Little Gardener treats long-running agent work as an engineered loop rather
+than a one-shot prompt.
 
-AI Agent 在单次输出上很强——写代码、回答问题、分析文本。但当任务需要**跨步骤维持状态、边界、退出条件**这些工程化的东西时，裸 prompt 就不够了：
+## Why Loops
 
-- Agent 改完代码，顺手改了三个无关模块——没人约束它的改动边界
-- 一个复杂的审查流程，Agent 做着做着做了别的事——没人检查它的进展
-- 你想让 Agent 每周自动做一次代码健康检查——但每次都要重新说一遍
+Agents are strong at single responses, but recurring maintenance needs more
+structure:
 
-这不是模型能力问题。是**工作流缺少结构**。
+- a clear entry point,
+- bounded phases,
+- durable state,
+- explicit exit or pause conditions,
+- and safety rules around any project modification.
 
-## 核心思想
+The loop is simple:
 
-**把复杂工作流定义成可重复的循环，让 Agent 自己跑、自己验证、自己决定什么时候停。**
+```text
+observe -> diagnose -> plan -> act -> verify -> learn -> decide
+```
 
-每个 Loop 由五个要素组成：
+When no work is needed, the visual phase becomes `idle`. That does not mean the
+service has ended; it means the agent is waiting for the next scheduled scan.
 
-| 要素 | 说明 | 在 Gardener 中的体现 |
-|------|------|---------------------|
-| **Entry** | 什么条件触发这个循环？ | 用户命令 `/gardener` / 定时调度 |
-| **Body** | 循环体包含哪些阶段？ | Observe → Diagnose → Plan → Act → Verify → Learn |
-| **Exit** | 什么条件下停止？ | 花园健康 + 所有问题解决 + 不需要持续监控 |
-| **State** | 跨轮次状态怎么管理？ | `.gardener-state.json` + `.gardener-memory.json` |
-| **Safety** | 越界、回退、确认机制？ | Act 阶段用户确认；Observe/Diagnose 只读 |
+## Design Principles
 
-## 为什么叫 Loop Engineering
+1. **Separate phases**: each phase has a small responsibility and can be tested
+   independently.
+2. **Persist state**: every round writes state and memory so long sessions can
+   survive Claude Code restarts.
+3. **Prefer explicit signals**: phase skills call `garden phase`; hooks only
+   infer state as a fallback.
+4. **Stay safe by default**: scanning and diagnosis are read-only. Action skills
+   should not modify user projects unless a later policy explicitly allows it.
+5. **Make health visible**: the garden is not decoration. It is a compact view
+   of what the loop believes about project context health.
 
-"Loop" 不是花哨的术语。它就是 **`while (condition) { do(); decide(); }`**。
+## Context Gardener
 
-但这个结构的威力在于：
+Context Gardener applies the loop to files that shape agent behavior:
 
-1. **可重复** — 同一个循环可以每天跑、每周跑，不需要重新定义
-2. **可验证** — 每个阶段有明确的产物，下一阶段可以检查上一阶段的质量
-3. **可退出** — 不是死循环。Decide 阶段判断是否应该停止、回退、或继续
-4. **可学习** — Learn 阶段让循环每次都做得比上一次好
+- `CLAUDE.md`
+- `.github/` instructions and templates
+- local skill definitions
+- hook and command configuration
+- memory files
 
-## 设计原则
-
-### 1. 按阶段分离关注点
-
-不把"分析→改代码→验证"塞进同一个 prompt。每个阶段是一个独立步骤，有明确的输入和输出。这让每个步骤可以独立调试、独立改进。
-
-### 2. Decide 是循环的刹车
-
-没有 Decide 的循环不是循环，是死循环。每次迭代结束时，必须有一个明确的判断：
-- 目标达到了？→ Stop
-- 有改进但没完成？→ Continue（下次继续）
-- 方向错了？→ Replan
-- 连续 N 次没有改善？→ Escalate
-
-### 3. State 让跨会话成为可能
-
-裸 Agent 每次开新会话都是白纸。Loop 把状态持久化到文件——下次启动时加载历史，知道什么已经做过了、什么没做好、什么策略有效。
-
-### 4. Safety 优先于能力
-
-Loop 的 Act 阶段默认不做任何修改，除非用户显式确认。Observe 和 Diagnose 阶段永远是只读的。这确保了"看看花园"和"修剪花园"之间有明确的界限。
-
-### 5. 每一个 skill 都是独立可用的
-
-虽然每个 skill 嵌入 Loop Engineering 的骨架，但用户不需要理解"循环""阶段""退出条件"这些概念就能使用。调用 `/gardener` 和调用任何普通命令一样简单——Loop 的复杂度被封装在 skill 内部。
+The goal is to keep these files fresh, small enough to reason about, and aligned
+with the project the user is actually building.

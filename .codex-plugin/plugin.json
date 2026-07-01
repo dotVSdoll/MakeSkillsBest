@@ -1,0 +1,20 @@
+{
+  "name": "little-gardener",
+  "version": "0.1.0",
+  "description": "Context Gardener loop command, skills, and lightweight lifecycle hooks.",
+  "author": {
+    "name": "Little Gardener"
+  },
+  "commands": "./commands",
+  "skills": "./skills/",
+  "hooks": "./hooks/claude-gardener-hooks.json",
+  "interface": {
+    "displayName": "Little Gardener",
+    "shortDescription": "Visual loop engineering for agent context health",
+    "longDescription": "Runs a lightweight context health loop and maps the result onto a Web Canvas garden.",
+    "developerName": "Little Gardener",
+    "category": "Productivity",
+    "capabilities": ["Commands", "Instructions", "Lifecycle hooks", "Visualization"],
+    "brandColor": "#3E8F43"
+  }
+}

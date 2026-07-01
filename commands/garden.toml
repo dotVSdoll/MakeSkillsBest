@@ -1,0 +1,37 @@
+description = "Run Little Gardener for the current project"
+prompt = """
+Run Little Gardener for the current working directory and open the Web Canvas garden.
+
+Use the context-gardener skill as the behavior specification for the loop.
+
+Chain:
+1. Treat this command as the Claude Code bridge into context-gardener.
+2. Open the Web Canvas visualization immediately with a running observe bootstrap state.
+3. Let context-gardener run the loop steps: observe, diagnose, plan, act, verify, learn, decide.
+4. Mirror each loop state update into the Web Canvas visualization.
+5. Start or reuse the detached background scanner service. Scan immediately, then let the service evaluate every 6 hours for the 24 hour run window. When no layer needs work, show idle in place.
+
+Execute exactly this launcher from the current project directory:
+
+garden . --open
+
+Rules:
+- Do not ask the user to run Python manually.
+- Open the Web Canvas visualization immediately unless the user explicitly asks for no visualization.
+- The visualization belongs to the installed Little Gardener package and can display scan results for any project.
+- The character may use internal waypoints, but route lines must not be drawn.
+- The head label must match the active loop step.
+- If there is no work to do, keep loop.status running and show activePhase idle.
+- Idle means the character stops at its current position; do not move it to a bench or idle anchor.
+- Persist every round to .gardener-state.json, .gardener-memory.json, and .gardener-runs/.
+- Persist service status to .gardener-service.json.
+- The default loop pauses after 24 hours with stopReason max-runtime-reached unless the user stops it earlier.
+- The command returns after startup. The user can keep working in this Claude Code session.
+
+Then report:
+- the generated .gardener-state.json path
+- the generated .gardener-memory.json path
+- the generated .gardener-service.json path
+- the visualization URL
+- the active phase, active layer, and health score
+"""
