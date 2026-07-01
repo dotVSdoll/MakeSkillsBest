@@ -1,0 +1,17 @@
+node_modules/
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
+__pycache__/
+**/__pycache__/
+*.pyc
+.gardener-*.json
+.gardener-*.jsonl
+.gardener-runs/
+web/public/garden-state.json
+web/public/gardener-config.json
+web/public/gardener-runtime.json
+summary/
+.claude/
+.cursor/
+.opencode/

@@ -3,12 +3,11 @@ Context Gardener — Entry points.
 
 CLI:
     python -m src.main scan [--stale-days N] [--output FILE] <project_path>
-    python -m src.main web [--open] [<project_path>]
-    python -m src.main garden [<project_path>]
+    python -m src.main garden [--open] [<project_path>]
 
 Modes:
     scan        Run scanner + analyser (headless), output JSON report.
-    garden      Launch the Pygame immersive garden window.
+    garden      Run one loop pass and launch the Web Canvas garden.
 """
 
 import argparse
@@ -19,7 +18,13 @@ from pathlib import Path
 from src.scanner import scan
 from src.analyser import analyse
 from src.gardener_state import load_memory
-from src.web_runtime import run_web_runtime
+from src.web_runtime import (
+    load_service_state,
+    run_service_process,
+    run_web_runtime,
+    start_background_service,
+    stop_background_service,
+)
 
 
 def cmd_scan(args: argparse.Namespace) -> None:
@@ -31,15 +36,15 @@ def cmd_scan(args: argparse.Namespace) -> None:
     output = args.output
 
     memory = load_memory(project_path)
-    print(f"🔍 Scanning {project_path} ...", file=sys.stderr)
+    print(f"Scanning {project_path} ...", file=sys.stderr)
 
     scanned = scan(project_path, memory)
     if scanned.files:
         print(f"   Found {scanned.summary['totalFiles']} context files", file=sys.stderr)
     else:
-        print("   ⚠️  No context files found", file=sys.stderr)
+        print("   No context files found", file=sys.stderr)
 
-    print(f"🩺 Analysing ...", file=sys.stderr)
+    print("Analysing ...", file=sys.stderr)
     issues, health = analyse(
         scanned, stale_days, max_lines, max_words,
         project_path=project_path, memory=memory,
@@ -76,54 +81,57 @@ def cmd_scan(args: argparse.Namespace) -> None:
 
     if output:
         Path(output).write_text(json.dumps(report, ensure_ascii=False, indent=2), "utf-8")
-        print(f"📝 Report written to {output}", file=sys.stderr)
+        print(f"Report written to {output}", file=sys.stderr)
     else:
         print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 def cmd_garden(args: argparse.Namespace) -> None:
-    """Launch interactive garden mode (Pygame window)."""
-    project_path = args.project or "."
-    memory = load_memory(project_path)
-    scanned = scan(project_path, memory)
+    """Launch the Web Canvas visualisation and start/reuse the background loop."""
+    if args.status:
+        project = Path(args.project or ".").resolve()
+        print(json.dumps(load_service_state(project) or {"status": "not-running", "project": str(project)}, ensure_ascii=False, indent=2))
+        return
 
-    if not scanned.files:
-        print("⚠️  No context files found. Garden will be empty.", file=sys.stderr)
+    if args.stop:
+        print(json.dumps(stop_background_service(args.project or "."), ensure_ascii=False, indent=2))
+        return
 
-    issues, health = analyse(
-        scanned, project_path=project_path, memory=memory,
-    )
-
-    try:
-        from src.game.garden_scene import run_garden
-        state = {
-            "health": health if isinstance(health, dict) else {"current": health, "previous": None, "issuesRemaining": len(issues)},
-            "issues": [i.to_dict() for i in issues],
-            "files": [f.to_dict() for f in scanned.files],
-            "project": Path(project_path).resolve().name,
-        }
-        run_garden(state, project_path=project_path)
-    except ImportError as e:
-        print(f"❌ Could not start garden: {e}", file=sys.stderr)
-        print("   Make sure pygame is installed: pip install pygame", file=sys.stderr)
-        sys.exit(1)
-
-
-def cmd_web(args: argparse.Namespace) -> None:
-    """Run one basic loop pass and launch the Web Canvas visualisation."""
     result = run_web_runtime(
         args.project or ".",
         port=args.port,
         open_browser=args.open,
         start_server=not args.no_server,
+        keep_alive=False,
+        loop_interval=args.loop_interval,
+        max_runtime=args.max_runtime,
+    )
+    if not args.once and not args.no_server:
+        service = start_background_service(
+            args.project or ".",
+            port=args.port,
+            loop_interval=result.get("loopIntervalSeconds", args.loop_interval),
+            max_runtime=result.get("maxRuntimeSeconds", args.max_runtime),
+        )
+        result["service"] = service
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def cmd_service(args: argparse.Namespace) -> None:
+    """Run the detached background scheduler process."""
+    result = run_service_process(
+        args.project or ".",
+        port=args.port,
+        loop_interval=args.loop_interval,
+        max_runtime=args.max_runtime,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="🌱 Context Gardener")
+    parser = argparse.ArgumentParser(description="Context Gardener")
     parser.add_argument("--version", action="version", version="0.1.0")
-    sub = parser.add_subparsers(dest="mode", help="Mode: scan, web, or garden")
+    sub = parser.add_subparsers(dest="mode", help="Mode: scan or garden")
 
     # scan mode
     scan_p = sub.add_parser("scan", help="Run scanner + analyser (headless)")
@@ -134,23 +142,30 @@ def main() -> None:
     scan_p.add_argument("--output", "-o", type=str, help="Output JSON file path")
 
     # garden mode
-    garden_p = sub.add_parser("garden", help="Launch interactive garden (Pygame)")
+    garden_p = sub.add_parser("garden", help="Run basic loop and launch Web Canvas garden")
     garden_p.add_argument("project", nargs="?", default=".", help="Project path")
+    garden_p.add_argument("--open", action="store_true", help="Open the local web page in a browser")
+    garden_p.add_argument("--port", type=int, default=5173, help="Vite dev server port")
+    garden_p.add_argument("--no-server", action="store_true", help="Only write JSON state files")
+    garden_p.add_argument("--once", action="store_true", help="Run one loop pass and exit")
+    garden_p.add_argument("--status", action="store_true", help="Print background service status")
+    garden_p.add_argument("--stop", action="store_true", help="Stop the background service")
+    garden_p.add_argument("--loop-interval", type=int, default=21600, help="Seconds between background loop passes")
+    garden_p.add_argument("--max-runtime", type=int, default=86400, help="Seconds before the default loop pauses")
 
-    # web mode
-    web_p = sub.add_parser("web", help="Run basic loop and launch Web Canvas garden")
-    web_p.add_argument("project", nargs="?", default=".", help="Project path")
-    web_p.add_argument("--open", action="store_true", help="Open the local web page in a browser")
-    web_p.add_argument("--port", type=int, default=5173, help="Vite dev server port")
-    web_p.add_argument("--no-server", action="store_true", help="Only write JSON state files")
+    service_p = sub.add_parser("service", help=argparse.SUPPRESS)
+    service_p.add_argument("project", nargs="?", default=".", help=argparse.SUPPRESS)
+    service_p.add_argument("--port", type=int, default=5173, help=argparse.SUPPRESS)
+    service_p.add_argument("--loop-interval", type=int, default=21600, help=argparse.SUPPRESS)
+    service_p.add_argument("--max-runtime", type=int, default=86400, help=argparse.SUPPRESS)
 
     args = parser.parse_args()
     if args.mode == "scan":
         cmd_scan(args)
-    elif args.mode == "web":
-        cmd_web(args)
     elif args.mode == "garden":
         cmd_garden(args)
+    elif args.mode == "service":
+        cmd_service(args)
     else:
         parser.print_help()
 

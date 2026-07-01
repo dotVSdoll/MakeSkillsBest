@@ -5,5 +5,7 @@
   "author": {
     "name": "Little Gardener"
   },
+  "commands": "./commands",
+  "skills": "./skills",
   "hooks": "./hooks/claude-gardener-hooks.json"
 }

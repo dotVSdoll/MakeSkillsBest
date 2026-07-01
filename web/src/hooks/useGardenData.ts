@@ -16,33 +16,35 @@ const DEFAULT_CONFIG: GardenerConfig = {
     skipPhases: [],
     maxIterations: 5,
     requireConfirmationFor: ['act'],
+    maxRuntimeHours: 24,
+    scanIntervalHours: 6,
     stepLimit: 6,
     steps: [
-      { id: 'step-1', phase: 'observe', skill: 'context-gardener/observe', enabled: true },
-      { id: 'step-2', phase: 'diagnose', skill: 'context-gardener/diagnose', enabled: true },
-      { id: 'step-3', phase: 'plan', skill: 'context-gardener/plan', enabled: true },
-      { id: 'step-4', phase: 'act', skill: 'context-gardener/act', enabled: true },
-      { id: 'step-5', phase: 'verify', skill: 'context-gardener/verify', enabled: true },
-      { id: 'step-6', phase: 'learn', skill: 'context-gardener/learn', enabled: true },
+      { id: 'step-1', phase: 'observe', skill: 'gardener-observe', enabled: true },
+      { id: 'step-2', phase: 'diagnose', skill: 'gardener-diagnose', enabled: true },
+      { id: 'step-3', phase: 'plan', skill: 'gardener-plan', enabled: true },
+      { id: 'step-4', phase: 'act', skill: 'gardener-act', enabled: true },
+      { id: 'step-5', phase: 'verify', skill: 'gardener-verify', enabled: true },
+      { id: 'step-6', phase: 'learn', skill: 'gardener-learn', enabled: true },
     ],
     exitCondition: { healthTarget: 90, maxRoundsNoImprovement: 3 },
     stop: {
       allowManualStop: true,
-      stopWhenAllLayersHealthy: true,
-      stopAfterScheduledWindow: true,
+      stopWhenAllLayersHealthy: false,
+      stopAfterScheduledWindow: false,
     },
     phaseSkills: {
-      observe: { skill: 'context-gardener', enabled: true },
-      diagnose: { skill: 'context-gardener', enabled: true },
-      plan: { skill: 'context-gardener', enabled: true },
-      act: { skill: 'context-gardener', enabled: true },
-      verify: { skill: 'context-gardener', enabled: true },
-      learn: { skill: 'context-gardener', enabled: true },
-      decide: { skill: 'context-gardener', enabled: true },
+      observe: { skill: 'gardener-observe', enabled: true },
+      diagnose: { skill: 'gardener-diagnose', enabled: true },
+      plan: { skill: 'gardener-plan', enabled: true },
+      act: { skill: 'gardener-act', enabled: true },
+      verify: { skill: 'gardener-verify', enabled: true },
+      learn: { skill: 'gardener-learn', enabled: true },
+      decide: { skill: 'gardener-decide', enabled: true },
       idle: { skill: 'context-gardener', enabled: false },
     },
   },
-  schedule: { enabled: false, cron: '0 9 * * 1', timezone: 'local', runWindowMinutes: 30 },
+  schedule: { enabled: true, cron: '0 */6 * * *', timezone: 'local', runWindowMinutes: 1440 },
 };
 const CONFIG_STORAGE_KEY = 'little-gardener-config';
 
@@ -58,12 +60,12 @@ const DEFAULT_STATE: GardenState = {
     memory: { score: 94, issues: 0, status: 'healthy' },
   },
   loop: {
-    status: 'standby',
+    status: 'running',
     activePhase: 'idle',
     activeLayer: null,
     firstRunComplete: true,
     lastTransitionAt: null,
-    stopReason: 'demo-healthy-enough',
+    stopReason: null,
   },
 };
 
@@ -90,11 +92,14 @@ export function useGardenData() {
         const configResp = await fetch(`./gardener-config.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!cancelled && configResp.ok) {
           const data = await configResp.json();
-          const fileConfig = mergeConfig(DEFAULT_CONFIG, data);
-          setConfig(mergeConfig(fileConfig, loadStoredConfig()));
+          setConfig(mergeConfig(DEFAULT_CONFIG, data));
+        } else if (!cancelled) {
+          setConfig(mergeConfig(DEFAULT_CONFIG, loadStoredConfig()));
         }
       } catch {
-        // Silent
+        if (!cancelled) {
+          setConfig(mergeConfig(DEFAULT_CONFIG, loadStoredConfig()));
+        }
       }
 
       if (!cancelled) setLoading(false);
@@ -113,6 +118,7 @@ export function useGardenData() {
 
   const setConfigAndPersist = useCallback((nextConfig: GardenerConfig) => {
     setConfig(nextConfig);
+    void saveConfigToServer(nextConfig);
     try {
       window.localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(nextConfig));
     } catch {
@@ -121,6 +127,22 @@ export function useGardenData() {
   }, []);
 
   return { state, config, loading, setConfig: setConfigAndPersist, setState };
+}
+
+async function saveConfigToServer(config: GardenerConfig): Promise<void> {
+  try {
+    const response = await fetch('/api/gardener-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (!response.ok) {
+      throw new Error(`config save failed: ${response.status}`);
+    }
+  } catch {
+    // Static previews do not expose the Vite middleware. The localStorage copy
+    // above keeps the panel usable until the plugin runtime is active.
+  }
 }
 
 function loadStoredConfig(): Partial<GardenerConfig> {
@@ -183,7 +205,7 @@ function normalizeSteps(
   return LOOP_PHASES.slice(0, stepLimit).map((phase, index) => ({
     id: `step-${index + 1}`,
     phase,
-    skill: phaseSkills[phase]?.skill ?? 'context-gardener',
+    skill: phaseSkills[phase]?.skill ?? `gardener-${phase}`,
     enabled: phaseSkills[phase]?.enabled ?? true,
   }));
 }

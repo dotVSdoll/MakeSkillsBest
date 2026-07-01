@@ -102,7 +102,7 @@ export default function SettingsPanel({
       {
         id: `step-${Date.now()}`,
         phase,
-        skill: `context-gardener/${phase}`,
+        skill: `gardener-${phase}`,
         enabled: true,
       },
     ]);
@@ -172,6 +172,17 @@ export default function SettingsPanel({
               onChange={(event) => update(['schedule', 'cron'], event.target.value)}
             />
           </label>
+          <label style={styles.row}>
+            <span>Run window</span>
+            <input
+              data-testid="schedule-window"
+              style={styles.numberInput}
+              type="number"
+              min={1}
+              value={localConfig.schedule.runWindowMinutes}
+              onChange={(event) => update(['schedule', 'runWindowMinutes'], Math.max(1, parseInt(event.target.value) || 1))}
+            />
+          </label>
         </section>
 
         <section style={styles.section}>
@@ -208,6 +219,28 @@ export default function SettingsPanel({
           </label>
           <label style={styles.row}>
             <span>允许手动停止</span>
+            <input
+              data-testid="scan-interval-hours"
+              style={styles.numberInput}
+              type="number"
+              min={1}
+              value={localConfig.loop.scanIntervalHours}
+              onChange={(event) => update(['loop', 'scanIntervalHours'], Math.max(1, parseInt(event.target.value) || 1))}
+            />
+          </label>
+          <label style={styles.row}>
+            <span>Runtime hours</span>
+            <input
+              data-testid="max-runtime-hours"
+              style={styles.numberInput}
+              type="number"
+              min={0}
+              value={localConfig.loop.maxRuntimeHours}
+              onChange={(event) => update(['loop', 'maxRuntimeHours'], Math.max(0, parseInt(event.target.value) || 0))}
+            />
+          </label>
+          <label style={styles.row}>
+            <span>Allow manual stop</span>
             <input
               data-testid="allow-manual-stop"
               type="checkbox"

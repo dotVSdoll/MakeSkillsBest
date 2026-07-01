@@ -86,6 +86,8 @@ export interface GardenerConfig {
     skipPhases: string[];
     maxIterations: number;
     requireConfirmationFor: string[];
+    maxRuntimeHours: number;
+    scanIntervalHours: number;
     stepLimit: number;
     steps: LoopSkillStep[];
     exitCondition: {
@@ -148,12 +150,12 @@ export const LOOP_PHASES: LoopStepPhase[] = [
 ];
 
 export const PHASE_LABELS: Record<GardenerPhase, string> = {
-  observe: '🔍 巡视',
-  diagnose: '🩺 诊断',
-  plan: '📋 计划',
-  act: '🔧 修剪',
-  verify: '✅ 验证',
-  learn: '📝 学习',
-  decide: '🔁 决策',
-  idle: '💤 待机',
+  observe: 'observe',
+  diagnose: 'diagnose',
+  plan: 'plan',
+  act: 'act',
+  verify: 'verify',
+  learn: 'learn',
+  decide: 'decide',
+  idle: 'idle',
 };

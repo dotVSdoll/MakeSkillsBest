@@ -7,6 +7,7 @@ for cross-session persistence and Loop Engineering lifecycle tracking.
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -60,9 +61,16 @@ def save_memory(project_path: str, memory: Dict[str, Any]) -> str:
 
 def write_json_atomic(path: Path, data: Dict[str, Any]) -> None:
     """Write JSON via a temporary file and atomic replace."""
-    tmp = path.with_name(f"{path.name}.tmp")
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
-    tmp.replace(path)
+    for attempt in range(8):
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError:
+            if attempt == 7:
+                raise
+            time.sleep(0.05 * (attempt + 1))
 
 
 def init_state(repo: str) -> Dict[str, Any]:
@@ -73,14 +81,14 @@ def init_state(repo: str) -> Dict[str, Any]:
             "createdAt": None,
             "currentPhase": "idle",
             "loopCount": 0,
-            "status": "standby",
-            "firstRunComplete": False,
+            "status": "running",
+            "firstRunComplete": True,
         },
         "loop": {
-            "status": "standby",
+            "status": "running",
             "activePhase": "idle",
             "activeLayer": None,
-            "firstRunComplete": False,
+            "firstRunComplete": True,
             "lastTransitionAt": None,
             "stopReason": None,
         },

@@ -94,8 +94,11 @@ export function updateGardener(gardener: GardenerType, dt: number): void {
 
   const step = speed * dt;
   if (step >= dist) {
-    gardener.x = gardener.targetX;
-    gardener.y = gardener.targetY;
+    gardener.x = nextPoint.x;
+    gardener.y = nextPoint.y;
+    if (gardener.waypoints && gardener.waypoints.length > 0) {
+      gardener.waypoints.shift();
+    }
   } else {
     gardener.x += (dx / dist) * step;
     gardener.y += (dy / dist) * step;

@@ -1,9 +1,7 @@
-"""
-Context Gardener — A cute 2D garden visualization for AI project context health.
+"""Little Gardener runtime package.
 
-Your project's context files (CLAUDE.md, memory/*.md, rules/*) are a garden.
-The Gardener patrols, diagnoses, and trims. This package provides the engine
-and the Pygame-based immersive garden interface.
+The Python side scans project context files, analyses their health, persists
+loop state, and feeds the Web Canvas visualizer through JSON files.
 """
 
 __version__ = "0.1.0"

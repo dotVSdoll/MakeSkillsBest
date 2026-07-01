@@ -20,6 +20,7 @@ import type {
   GardenLayer,
   GardenState,
   GardenerConfig,
+  GardenerPhase,
   Gardener as GardenerType,
   Plant,
   TileType,
@@ -31,6 +32,7 @@ declare global {
     __GARDENER_DEBUG__?: {
       gardener: GardenerType;
       activeLayer: GardenLayer | null;
+      visualPhase: GardenerPhase;
       shouldIdle: boolean;
       loopStatus: GardenState['loop'] extends infer Runtime ? Runtime : never;
     };
@@ -84,13 +86,20 @@ export default function App() {
     const g = gardener.current;
     const runtime = stateRef.current.loop;
     const activeLayer = getActiveLayer(stateRef.current, configRef.current.loop.exitCondition.healthTarget);
-    const shouldIdle = shouldRest(stateRef.current, configRef.current, standbyRef.current, activeLayer);
+    const visualPhase = getVisualPhase(runtime);
+    const shouldIdle = shouldRest(
+      stateRef.current,
+      configRef.current,
+      standbyRef.current,
+      activeLayer,
+      visualPhase,
+    );
 
     if (shouldIdle) {
       g.phase = 'idle';
-      setGardenerRoute(g, SCENE_ANCHORS.idle.x, SCENE_ANCHORS.idle.y, 'idle', routeKeyRef);
+      stopGardenerInPlace(g, routeKeyRef);
     } else {
-      g.phase = runtime?.activePhase ?? LOOP_PHASES[0];
+      g.phase = visualPhase;
       const target = activeLayer ? LAYER_WORK_ANCHORS[activeLayer] : SCENE_ANCHORS[g.phase];
       setGardenerRoute(g, target.x, target.y, `${g.phase}:${activeLayer ?? 'phase'}`, routeKeyRef);
     }
@@ -99,6 +108,7 @@ export default function App() {
     window.__GARDENER_DEBUG__ = {
       gardener: { ...g },
       activeLayer,
+      visualPhase,
       shouldIdle,
       loopStatus: runtime,
     };
@@ -232,6 +242,7 @@ function getActiveLayer(
   const runtimeLayer = state.loop?.activeLayer;
 
   if (runtimeLayer) {
+    if (state.loop?.activePhase && state.loop.activePhase !== 'idle') return runtimeLayer;
     const health = layerHealth?.[runtimeLayer];
     if (!state.loop?.firstRunComplete || !health) return runtimeLayer;
     if (health.score < healthTarget || health.issues > 0) return runtimeLayer;
@@ -249,6 +260,7 @@ function shouldRest(
   config: GardenerConfig,
   manualStandby: boolean,
   activeLayer: GardenLayer | null,
+  visualPhase: GardenerPhase,
 ): boolean {
   if (manualStandby || !config.loop.enabled) return true;
 
@@ -257,9 +269,20 @@ function shouldRest(
     return true;
   }
 
+  if (visualPhase === 'idle') return true;
+
+  if (runtime?.status === 'running' || runtime?.status === 'waiting') return false;
+
   if (!runtime?.firstRunComplete) return false;
 
   return config.loop.stop.stopWhenAllLayersHealthy && activeLayer === null;
+}
+
+function getVisualPhase(
+  runtime: GardenState['loop'],
+): GardenerPhase {
+  if (!runtime) return LOOP_PHASES[0];
+  return runtime.activePhase;
 }
 
 function problemPlantColumns(state: GardenState): Partial<Record<GardenLayer, number>> {
@@ -294,7 +317,17 @@ function setGardenerRoute(
   routeKeyRef.current = routeKey;
   gardener.targetX = targetX;
   gardener.targetY = targetY;
-  gardener.waypoints = buildHiddenRoute(gardener.x, gardener.y, targetX, targetY);
+  gardener.waypoints = buildHiddenRoute(gardener.x, gardener.y, targetX, targetY, key);
+}
+
+function stopGardenerInPlace(
+  gardener: GardenerType,
+  routeKeyRef: MutableRefObject<string>,
+): void {
+  routeKeyRef.current = `idle:${gardener.x}:${gardener.y}`;
+  gardener.targetX = gardener.x;
+  gardener.targetY = gardener.y;
+  gardener.waypoints = [];
 }
 
 function buildHiddenRoute(
@@ -302,18 +335,43 @@ function buildHiddenRoute(
   fromY: number,
   targetX: number,
   targetY: number,
+  key: string,
 ): Array<{ x: number; y: number }> {
-  const corridorY = 6 * 64 + 56;
-  const hubX = 8 * 64 - 8;
-  const points = [
-    { x: fromX, y: corridorY },
-    { x: hubX, y: corridorY },
-    { x: targetX, y: corridorY },
-    { x: targetX, y: targetY },
+  const variant = Math.abs(hashRouteKey(key)) % 4;
+  const routeTemplates = [
+    [
+      { x: fromX, y: 6 * 64 + 56 },
+      { x: 8 * 64 - 8, y: 6 * 64 + 56 },
+      { x: targetX, y: 6 * 64 + 56 },
+      { x: targetX, y: targetY },
+    ],
+    [
+      { x: 7 * 64 + 24, y: fromY },
+      { x: 7 * 64 + 24, y: 4 * 64 + 56 },
+      { x: targetX, y: 4 * 64 + 56 },
+      { x: targetX, y: targetY },
+    ],
+    [
+      { x: fromX, y: 8 * 64 + 8 },
+      { x: 11 * 64 + 24, y: 8 * 64 + 8 },
+      { x: 11 * 64 + 24, y: targetY },
+      { x: targetX, y: targetY },
+    ],
+    [
+      { x: 13 * 64 + 8, y: fromY },
+      { x: 13 * 64 + 8, y: 5 * 64 + 48 },
+      { x: 9 * 64 + 8, y: 5 * 64 + 48 },
+      { x: targetX, y: targetY },
+    ],
   ];
+  const points = routeTemplates[variant];
 
   return points.filter((point, index, all) => {
     const previous = index === 0 ? { x: fromX, y: fromY } : all[index - 1];
     return Math.hypot(point.x - previous.x, point.y - previous.y) > 8;
   });
+}
+
+function hashRouteKey(key: string): number {
+  return Array.from(key).reduce((hash, char) => ((hash << 5) - hash) + char.charCodeAt(0), 0);
 }

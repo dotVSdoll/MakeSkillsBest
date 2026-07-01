@@ -3,18 +3,16 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "context-gardener"
+name = "little-gardener"
 version = "0.1.0"
-description = "🌱 Context Gardener — A cute 2D garden that visualizes your project's context file health"
+description = "Little Gardener - a Web Canvas loop visualizer for project context health"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
-dependencies = [
-    "pygame>=2.6",
-]
+dependencies = []
 
 [project.scripts]
-gardener = "src.main:main"
+garden-python = "src.main:main"
 
 [tool.setuptools.packages.find]
 include = ["src*"]

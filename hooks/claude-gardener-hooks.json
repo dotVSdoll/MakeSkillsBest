@@ -6,10 +6,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/gardener-activate.js\"; exit 0",
-            "commandWindows": "if (Get-Command node -ErrorAction SilentlyContinue) { node \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\gardener-activate.js\" }",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
             "timeout": 5,
             "statusMessage": "Loading Context Gardener..."
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
           }
         ]
       }
@@ -19,10 +31,106 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/gardener-activate.js\"; exit 0",
-            "commandWindows": "if (Get-Command node -ErrorAction SilentlyContinue) { node \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\gardener-activate.js\" }",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
             "timeout": 5,
             "statusMessage": "Tracking Context Gardener..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "garden hook",
+            "commandWindows": "garden hook",
+            "timeout": 5
           }
         ]
       }
