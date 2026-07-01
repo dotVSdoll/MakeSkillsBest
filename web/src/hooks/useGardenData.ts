@@ -6,6 +6,13 @@ import { useCallback, useState, useEffect } from 'react';
 import { LOOP_PHASES } from '../types.ts';
 import type { GardenState, GardenerConfig, LoopSkillStep } from '../types.ts';
 
+export interface SkillInfo {
+  name: string;
+  path: string;
+  description: string;
+  source: 'claude' | 'project';
+}
+
 const DEFAULT_CONFIG: GardenerConfig = {
   thresholds: { staleDays: 30, maxLines: 200, maxWords: 1000, orphanCheck: true },
   detection: { stale: true, contradiction: true, bloat: true, orphan: true },
@@ -20,12 +27,12 @@ const DEFAULT_CONFIG: GardenerConfig = {
     scanIntervalHours: 6,
     stepLimit: 6,
     steps: [
-      { id: 'step-1', phase: 'observe', skill: 'gardener-observe', enabled: true },
-      { id: 'step-2', phase: 'diagnose', skill: 'gardener-diagnose', enabled: true },
-      { id: 'step-3', phase: 'plan', skill: 'gardener-plan', enabled: true },
-      { id: 'step-4', phase: 'act', skill: 'gardener-act', enabled: true },
-      { id: 'step-5', phase: 'verify', skill: 'gardener-verify', enabled: true },
-      { id: 'step-6', phase: 'learn', skill: 'gardener-learn', enabled: true },
+      { id: 'step-1', name: 'Observe', phase: 'observe', skill: 'gardener-observe', enabled: true },
+      { id: 'step-2', name: 'Diagnose', phase: 'diagnose', skill: 'gardener-diagnose', enabled: true },
+      { id: 'step-3', name: 'Plan', phase: 'plan', skill: 'gardener-plan', enabled: true },
+      { id: 'step-4', name: 'Act', phase: 'act', skill: 'gardener-act', enabled: true },
+      { id: 'step-5', name: 'Verify', phase: 'verify', skill: 'gardener-verify', enabled: true },
+      { id: 'step-6', name: 'Learn', phase: 'learn', skill: 'gardener-learn', enabled: true },
     ],
     exitCondition: { healthTarget: 90, maxRoundsNoImprovement: 3 },
     stop: {
@@ -73,6 +80,7 @@ export function useGardenData() {
   const [state, setState] = useState<GardenState>(DEFAULT_STATE);
   const [config, setConfig] = useState<GardenerConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
+  const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,6 +110,17 @@ export function useGardenData() {
         }
       }
 
+      // Load available skills list from the Vite API plugin
+      try {
+        const skillsResp = await fetch('/api/available-skills');
+        if (!cancelled && skillsResp.ok) {
+          const data = await skillsResp.json();
+          setAvailableSkills(data.skills ?? []);
+        }
+      } catch {
+        // Plugin not available in static preview — leave empty
+      }
+
       if (!cancelled) setLoading(false);
     }
 
@@ -126,7 +145,7 @@ export function useGardenData() {
     }
   }, []);
 
-  return { state, config, loading, setConfig: setConfigAndPersist, setState };
+  return { state, config, loading, availableSkills, setConfig: setConfigAndPersist, setState };
 }
 
 async function saveConfigToServer(config: GardenerConfig): Promise<void> {
@@ -196,6 +215,7 @@ function normalizeSteps(
   if (Array.isArray(overrideSteps) && overrideSteps.length > 0) {
     return overrideSteps.slice(0, stepLimit).map((step, index) => ({
       id: step.id || `step-${index + 1}`,
+      name: step.name,
       phase: step.phase,
       skill: step.skill,
       enabled: step.enabled,
@@ -204,6 +224,7 @@ function normalizeSteps(
 
   return LOOP_PHASES.slice(0, stepLimit).map((phase, index) => ({
     id: `step-${index + 1}`,
+    name: phase.charAt(0).toUpperCase() + phase.slice(1),
     phase,
     skill: phaseSkills[phase]?.skill ?? `gardener-${phase}`,
     enabled: phaseSkills[phase]?.enabled ?? true,

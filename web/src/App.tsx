@@ -41,7 +41,7 @@ declare global {
 
 export default function App() {
   const debugMode = new URLSearchParams(window.location.search).get('debug');
-  const { state, config, loading, setConfig } = useGardenData();
+  const { state, config, loading, availableSkills, setConfig } = useGardenData();
   const [showSettings, setShowSettings] = useState(false);
   const [standby, setStandby] = useState(false);
   const health = state.health.current;
@@ -148,7 +148,7 @@ export default function App() {
         background: '#1a1a2e', color: '#E8F5E9',
         fontSize: 18, fontFamily: 'monospace',
       }}>
-        🌱 花园加载中...
+        🌱 Garden loading...
       </div>
     );
   }
@@ -183,6 +183,7 @@ export default function App() {
         <SettingsPanel
           visible={showSettings}
           config={config}
+          availableSkills={availableSkills}
           onClose={() => setShowSettings(false)}
           onConfigChange={(c) => setConfig(c)}
         />
@@ -194,7 +195,7 @@ export default function App() {
           fontSize: 11, zIndex: 5, textAlign: 'center',
           fontFamily: 'monospace',
         }}>
-          SPACE 待机 · S 设置 · ESC 关闭面板
+          SPACE Standby · S Settings · ESC Close
         </div>
       </div>
     </div>

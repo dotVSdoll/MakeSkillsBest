@@ -2,12 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 
 export default defineConfig({
-  plugins: [react(), gardenerConfigApi()],
+  plugins: [react(), gardenerConfigApi(), availableSkillsApi()],
   base: './',
 });
 
+/** API endpoint: POST /api/gardener-config — save config to disk */
 function gardenerConfigApi() {
   return {
     name: 'gardener-config-api',
@@ -46,6 +48,113 @@ function gardenerConfigApi() {
         }
       });
     },
+  };
+}
+
+/** API endpoint: GET /api/available-skills — scan skill directories */
+function availableSkillsApi() {
+  return {
+    name: 'available-skills-api',
+    configureServer(server) {
+      server.middlewares.use('/api/available-skills', async (_req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        try {
+          const skills = await scanAllSkills(server.config.root);
+          res.statusCode = 200;
+          res.end(JSON.stringify({ skills }));
+        } catch (error) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ skills: [], error: error instanceof Error ? error.message : String(error) }));
+        }
+      });
+    },
+  };
+}
+
+interface SkillEntry {
+  name: string;
+  path: string;
+  description: string;
+  source: 'claude' | 'project';
+}
+
+async function scanAllSkills(root: string): Promise<SkillEntry[]> {
+  const skills: SkillEntry[] = [];
+  const seen = new Set<string>();
+
+  // 1. Scan ~/.claude/skills/
+  const claudeSkillsDir = path.join(os.homedir(), '.claude', 'skills');
+  await scanSkillDir(claudeSkillsDir, 'claude', skills, seen);
+
+  // 2. Scan project-local skills/ if GARDENER_PROJECT_PATH is set
+  const projectPath = process.env.GARDENER_PROJECT_PATH
+    ? path.resolve(process.env.GARDENER_PROJECT_PATH)
+    : null;
+  if (projectPath) {
+    const projectSkillsDir = path.join(projectPath, 'skills');
+    await scanSkillDir(projectSkillsDir, 'project', skills, seen);
+  } else {
+    // fallback: skills/ relative to vite root parent
+    const fallbackDir = path.resolve(root, '..', 'skills');
+    await scanSkillDir(fallbackDir, 'project', skills, seen);
+  }
+
+  return skills;
+}
+
+async function scanSkillDir(
+  dir: string,
+  source: 'claude' | 'project',
+  skills: SkillEntry[],
+  seen: Set<string>,
+): Promise<void> {
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (seen.has(entry.name)) continue;
+
+      const skillDir = path.join(dir, entry.name);
+      const meta = await readSkillMeta(skillDir, entry.name);
+      seen.add(entry.name);
+      skills.push({
+        name: meta.name,
+        path: entry.name,
+        description: meta.description,
+        source,
+      });
+    }
+  } catch {
+    // Directory doesn't exist or can't be read — skip silently
+  }
+}
+
+async function readSkillMeta(skillDir: string, fallbackName: string): Promise<{ name: string; description: string }> {
+  // Try SKILL.md with frontmatter first
+  for (const candidate of ['SKILL.md', 'skill.md', 'definition.json']) {
+    const filePath = path.join(skillDir, candidate);
+    try {
+      const raw = await fs.promises.readFile(filePath, 'utf8');
+      const meta = parseSkillFrontmatter(raw);
+      if (meta) return meta;
+    } catch {
+      // try next
+    }
+  }
+  return { name: fallbackName, description: '' };
+}
+
+function parseSkillFrontmatter(raw: string): { name: string; description: string } | null {
+  // Match YAML frontmatter between --- markers
+  const match = raw.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (!match) return null;
+
+  const frontmatter = match[1];
+  const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
+  const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
+  return {
+    name: nameMatch ? nameMatch[1].trim() : '',
+    description: descMatch ? descMatch[1].trim() : '',
   };
 }
 

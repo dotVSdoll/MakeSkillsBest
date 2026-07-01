@@ -34,7 +34,7 @@ export default function HUD({ health, issueCount, onToggleSettings }: HUDProps) 
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: '#C8E6C9', fontSize: 14 }}>
-          健康度:
+          Health:
         </span>
         <span style={{ color: barColor, fontSize: 14, fontWeight: 'bold' }}>
           {health}/100
@@ -55,9 +55,9 @@ export default function HUD({ health, issueCount, onToggleSettings }: HUDProps) 
             fontWeight: 700,
             color: '#C8E6C9',
           }}
-          title="设置 (S)"
+          title="Settings (S)"
         >
-          设置
+          Settings
         </button>
       </div>
 
@@ -82,7 +82,7 @@ export default function HUD({ health, issueCount, onToggleSettings }: HUDProps) 
       </div>
 
       <span style={{ color: '#C8E6C9', fontSize: 12 }}>
-        问题: {issueCount} 个
+        Issues: {issueCount}
       </span>
     </div>
   );

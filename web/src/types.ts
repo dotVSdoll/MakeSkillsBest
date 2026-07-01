@@ -38,6 +38,8 @@ export interface LayerHealth {
 
 export interface LoopSkillStep {
   id: string;
+  /** Optional display name shown in the skill assembly UI */
+  name?: string;
   phase: LoopStepPhase;
   skill: string;
   enabled: boolean;

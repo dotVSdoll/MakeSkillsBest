@@ -58,6 +58,6 @@ export function renderFrame(
     ctx.fillStyle = '#FFD54F';
     ctx.font = '24px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('⏸ 待机中 — 按 SPACE 唤醒', SCREEN_W / 2, SCREEN_H - 40);
+    ctx.fillText('⏸ Standby — press SPACE to wake', SCREEN_W / 2, SCREEN_H - 40);
   }
 }

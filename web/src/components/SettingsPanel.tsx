@@ -1,28 +1,36 @@
+/**
+ * SettingsPanel — full settings for the Gardener loop.
+ * Displays schedule, stop strategy, and skill assembly controls.
+ */
+
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { LOOP_PHASES } from '../types.ts';
 import type { GardenerConfig, LoopSkillStep, LoopStepPhase } from '../types.ts';
+import type { SkillInfo } from '../hooks/useGardenData.ts';
 
 interface SettingsPanelProps {
   visible: boolean;
   config: GardenerConfig;
+  availableSkills: SkillInfo[];
   onClose: () => void;
   onConfigChange: (config: GardenerConfig) => void;
 }
 
 const PHASE_NAMES: Record<LoopStepPhase, string> = {
-  observe: 'observe / 观察',
-  diagnose: 'diagnose / 诊断',
-  plan: 'plan / 规划',
-  act: 'act / 行动',
-  verify: 'verify / 验证',
-  learn: 'learn / 学习',
-  decide: 'decide / 决策',
+  observe: 'Observe',
+  diagnose: 'Diagnose',
+  plan: 'Plan',
+  act: 'Act',
+  verify: 'Verify',
+  learn: 'Learn',
+  decide: 'Decide',
 };
 
 export default function SettingsPanel({
   visible,
   config,
+  availableSkills,
   onClose,
   onConfigChange,
 }: SettingsPanelProps) {
@@ -101,8 +109,9 @@ export default function SettingsPanel({
       ...steps,
       {
         id: `step-${Date.now()}`,
+        name: PHASE_NAMES[phase],
         phase,
-        skill: `gardener-${phase}`,
+        skill: skillForPhase(phase, availableSkills),
         enabled: true,
       },
     ]);
@@ -112,16 +121,30 @@ export default function SettingsPanel({
     commitSteps(steps.filter((_, i) => i !== index));
   };
 
+  const skillOptions = useMemo(() => {
+    const opts: Array<{ value: string; label: string }> = availableSkills.map((s) => ({
+      value: s.path,
+      label: `${s.name} (${s.path})`,
+    }));
+    // Allow free-text custom skill names too
+    steps.forEach((step) => {
+      if (step.skill && !opts.some((o) => o.value === step.skill)) {
+        opts.push({ value: step.skill, label: `${step.skill} (custom)` });
+      }
+    });
+    return opts;
+  }, [availableSkills, steps]);
+
   return (
     <div style={styles.panel} data-testid="settings-panel">
       <div style={styles.header}>
-        <span style={styles.title}>规则设置</span>
+        <span style={styles.title}>Settings</span>
         <button
           type="button"
           onClick={onClose}
           style={styles.iconButton}
           data-testid="settings-close"
-          aria-label="关闭设置"
+          aria-label="Close settings"
         >
           x
         </button>
@@ -129,9 +152,9 @@ export default function SettingsPanel({
 
       <div style={styles.body}>
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>定时任务</h2>
+          <h2 style={styles.sectionTitle}>Schedule</h2>
           <label style={styles.row}>
-            <span>启用</span>
+            <span>Enabled</span>
             <input
               data-testid="schedule-enabled"
               type="checkbox"
@@ -140,7 +163,7 @@ export default function SettingsPanel({
             />
           </label>
           <label style={styles.row}>
-            <span>分钟</span>
+            <span>Minute</span>
             <input
               data-testid="schedule-minute"
               style={styles.numberInput}
@@ -152,7 +175,7 @@ export default function SettingsPanel({
             />
           </label>
           <label style={styles.row}>
-            <span>小时</span>
+            <span>Hour</span>
             <input
               data-testid="schedule-hour"
               style={styles.numberInput}
@@ -173,7 +196,7 @@ export default function SettingsPanel({
             />
           </label>
           <label style={styles.row}>
-            <span>Run window</span>
+            <span>Run window (min)</span>
             <input
               data-testid="schedule-window"
               style={styles.numberInput}
@@ -186,9 +209,9 @@ export default function SettingsPanel({
         </section>
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>Loop 停止策略</h2>
+          <h2 style={styles.sectionTitle}>Loop Stop Strategy</h2>
           <label style={styles.row}>
-            <span>启用 Loop</span>
+            <span>Enable Loop</span>
             <input
               data-testid="loop-enabled"
               type="checkbox"
@@ -197,7 +220,7 @@ export default function SettingsPanel({
             />
           </label>
           <label style={styles.row}>
-            <span>健康目标</span>
+            <span>Health Target</span>
             <input
               data-testid="health-target"
               style={styles.numberInput}
@@ -209,7 +232,7 @@ export default function SettingsPanel({
             />
           </label>
           <label style={styles.row}>
-            <span>全健康后停止</span>
+            <span>Stop when healthy</span>
             <input
               data-testid="stop-when-healthy"
               type="checkbox"
@@ -218,7 +241,7 @@ export default function SettingsPanel({
             />
           </label>
           <label style={styles.row}>
-            <span>允许手动停止</span>
+            <span>Scan interval (hrs)</span>
             <input
               data-testid="scan-interval-hours"
               style={styles.numberInput}
@@ -229,7 +252,7 @@ export default function SettingsPanel({
             />
           </label>
           <label style={styles.row}>
-            <span>Runtime hours</span>
+            <span>Max runtime (hrs)</span>
             <input
               data-testid="max-runtime-hours"
               style={styles.numberInput}
@@ -252,7 +275,7 @@ export default function SettingsPanel({
 
         <section style={styles.section}>
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Skill 装配</h2>
+            <h2 style={styles.sectionTitle}>Skill Assembly</h2>
             <span style={styles.stepCounter}>{steps.length}/{stepLimit}</span>
           </div>
 
@@ -268,20 +291,34 @@ export default function SettingsPanel({
                       checked={step.enabled}
                       onChange={(event) => updateStep(index, { enabled: event.target.checked })}
                     />
-                    启用
+                    Enable
                   </label>
                   <button
                     type="button"
                     style={styles.deleteButton}
                     data-testid={`skill-delete-${index}`}
                     onClick={() => deleteStep(index)}
-                    aria-label={`删除 Step ${index + 1}`}
+                    aria-label={`Delete step ${index + 1}`}
                   >
-                    删除
+                    Delete
                   </button>
                 </div>
+
+                {/* Step Name */}
                 <label style={styles.stackLabel}>
-                  <span>阶段</span>
+                  <span>Name</span>
+                  <input
+                    data-testid={`step-name-${index}`}
+                    style={styles.fullInput}
+                    value={step.name ?? ''}
+                    placeholder="Optional label"
+                    onChange={(event) => updateStep(index, { name: event.target.value })}
+                  />
+                </label>
+
+                {/* Phase */}
+                <label style={styles.stackLabel}>
+                  <span>Phase</span>
                   <select
                     data-testid={`skill-phase-${index}`}
                     style={styles.fullInput}
@@ -293,14 +330,32 @@ export default function SettingsPanel({
                     ))}
                   </select>
                 </label>
+
+                {/* Skill — dropdown from available + free-text fallback */}
                 <label style={styles.stackLabel}>
                   <span>Skill</span>
-                  <input
-                    data-testid={`skill-name-${index}`}
-                    style={styles.fullInput}
-                    value={step.skill}
-                    onChange={(event) => updateStep(index, { skill: event.target.value })}
-                  />
+                  {skillOptions.length > 0 ? (
+                    <select
+                      data-testid={`skill-select-${index}`}
+                      style={styles.fullInput}
+                      value={step.skill}
+                      onChange={(event) => updateStep(index, { skill: event.target.value })}
+                    >
+                      {skillOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      data-testid={`skill-name-${index}`}
+                      style={styles.fullInput}
+                      value={step.skill}
+                      placeholder="skill-name"
+                      onChange={(event) => updateStep(index, { skill: event.target.value })}
+                    />
+                  )}
                 </label>
               </div>
             ))}
@@ -313,12 +368,22 @@ export default function SettingsPanel({
             onClick={addStep}
             disabled={!canAddStep}
           >
-            添加 Step
+            + Add Step
           </button>
         </section>
       </div>
     </div>
   );
+}
+
+/** Pick the best default skill for a phase from the available list */
+function skillForPhase(phase: string, availableSkills: SkillInfo[]): string {
+  const match = availableSkills.find(
+    (s) => s.path === `gardener-${phase}` || s.name.toLowerCase() === `gardener-${phase}`,
+  );
+  if (match) return match.path;
+  // Fall back to path-based convention
+  return `gardener-${phase}`;
 }
 
 function parseCronTime(cron: string): { minute: number; hour: number } {
@@ -352,7 +417,7 @@ const styles: Record<string, CSSProperties> = {
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 380,
+    width: 400,
     height: '100%',
     background: 'rgba(30,40,30,0.94)',
     zIndex: 20,
@@ -416,7 +481,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
   },
   textInput: {
-    width: 180,
+    width: 200,
     background: 'rgba(255,255,255,0.1)',
     border: '1px solid rgba(255,255,255,0.2)',
     borderRadius: 4,
@@ -475,7 +540,7 @@ const styles: Record<string, CSSProperties> = {
   },
   stackLabel: {
     display: 'grid',
-    gridTemplateColumns: '44px 1fr',
+    gridTemplateColumns: '50px 1fr',
     alignItems: 'center',
     gap: 8,
     color: '#C8E6C9',

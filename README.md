@@ -22,7 +22,9 @@
 </h2>
 
 <p align="center">
-  <img src="docs/scene-overview.png" alt="Little Gardener scene overview" width="860">
+  <img src="SceneforGardener.png" alt="Little Gardener scene overview（参考图）" width="860">
+  <br>
+  <em>⬆ 参考效果图，实际渲染以 Web Canvas 实时画面为准</em>
 </p>
 
 Little Gardener turns a project into a small pixel garden. Claude Code runs a
